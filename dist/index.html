@@ -2,8 +2,76 @@
 <html>
   <head>
     <title>zone</title>
-    <style></style>
-    <script></script>
+    <style>* { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#chat {
+    margin: auto;
+
+    max-width: 100%;
+    max-height: 100%;
+
+    width: 640px;
+    height: 640px;
+
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-log {
+    flex: 1;
+}
+
+    </style>
+    <script>async function load() {
+    const serverInput = document.querySelector('#server-input');
+    const chatInput = document.querySelector('#chat-input');
+    const chatLog = document.querySelector('#chat-log');
+    const chatLines = [];
+
+    let websocket;
+    function connect(address) {
+        websocket = new WebSocket(address);
+        websocket.onopen = event => sendChat('... connected ...');
+        websocket.onerror = event => sendChat('... failed to connect ...');
+        websocket.onmessage = event => addChat(event.data);
+    }
+
+    function addChat(text) {
+        chatLines.push(text);
+        chatLog.innerText = chatLines.join('\n');
+    }
+    
+    function sendChat(text) {
+        websocket.send(text);
+        addChat('(you) ' + text);
+    }
+
+    serverInput.addEventListener('change', event => {
+        connect(serverInput.value);
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            sendChat(chatInput.value);
+            chatInput.value = "";
+        }
+    });
+}
+
+    </script>
   </head>
-  <body>hello</body>
+  <body onload="load()">
+    <div id="chat">
+      <input id="server-input" type="text" placeholder="server address...">
+      <div id="chat-log"></div>
+      <input id="chat-input" type="text" placeholder="chat message...">
+    </div>
+  </body>
 </html>

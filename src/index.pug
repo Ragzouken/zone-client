@@ -6,4 +6,8 @@ html
             include style.css
         script
             include script.js
-    body hello
+    body(onload="load()")
+        #chat
+            input#server-input(type="text", placeholder="server address...")
+            #chat-log
+            input#chat-input(type="text", placeholder="chat message...")
