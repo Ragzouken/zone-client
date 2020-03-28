@@ -38,10 +38,26 @@ html, body {
     let websocket;
     function connect(address) {
         websocket = new WebSocket(address);
-        websocket.onopen = event => sendChat('... connected ...');
-        websocket.onerror = event => sendChat('... failed to connect ...');
+        websocket.onopen = event => addChat('... connected ...');
+        websocket.onerror = event => addChat('... failed to connect ...');
         websocket.onmessage = event => addChat(event.data);
     }
+
+    function update() {
+        if (!websocket) {
+            serverInput.style = "background: red";
+        } else if (websocket.readyState === WebSocket.OPEN) {
+            serverInput.style = "background: green";
+        } else if (websocket.readyState === WebSocket.CONNECTING) {
+            serverInput.style = "background: yellow";
+        } else {
+            serverInput.style = "background: red";
+        }
+
+        window.requestAnimationFrame(() => update());
+    }
+
+    update();
 
     function addChat(text) {
         chatLines.push(text);
