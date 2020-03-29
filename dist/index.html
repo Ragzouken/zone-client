@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-gb">
   <head>
     <title>zone</title>
+    <meta charset="utf-8">
     <style>* { box-sizing: border-box; }
 
 html, body {
@@ -9,6 +10,9 @@ html, body {
     width: 100%;
     margin: 0;
     padding: 0;
+
+    background-color: #2E2F31;
+    color: #999;
 }
 
 #chat {
@@ -22,10 +26,17 @@ html, body {
 
     display: flex;
     flex-direction: column;
+    float: left;
 }
 
 #chat-log {
     flex: 1;
+}
+
+#zone {
+    width: 512px;
+    height: 512px;
+    float: left;
 }
 
     </style>
@@ -84,6 +95,11 @@ html, body {
     </script>
   </head>
   <body onload="load()">
+    <div id="zone">
+      <div id="youtube"></div>
+      <div id="background"></div>
+      <canvas class="player"></canvas>
+    </div>
     <div id="chat">
       <input id="server-input" type="text" placeholder="server address...">
       <div id="chat-log"></div>

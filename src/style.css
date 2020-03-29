@@ -5,6 +5,9 @@ html, body {
     width: 100%;
     margin: 0;
     padding: 0;
+
+    background-color: #2E2F31;
+    color: #999;
 }
 
 #chat {
@@ -18,8 +21,15 @@ html, body {
 
     display: flex;
     flex-direction: column;
+    float: left;
 }
 
 #chat-log {
     flex: 1;
+}
+
+#zone {
+    width: 512px;
+    height: 512px;
+    float: left;
 }

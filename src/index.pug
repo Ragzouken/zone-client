@@ -1,12 +1,17 @@
 doctype html
-html
+html(lang="en-gb")
     head
         title zone
+        meta(charset="utf-8")
         style
             include style.css
         script
             include script.js
     body(onload="load()")
+        #zone
+            #youtube
+            #background
+            canvas.player
         #chat
             input#server-input(type="text", placeholder="server address...")
             #chat-log
