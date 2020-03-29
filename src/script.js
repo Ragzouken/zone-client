@@ -2,12 +2,12 @@ const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + mi
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 var tag = document.createElement('script');
+tag.onerror = () => console.log("youtube error :(");
 tag.src = "https://www.youtube.com/player_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
 let autoplayed = false;
-const testVideos = ['9CTbniZhR9I', '4OtsoZrGZTc'];
 
 // Replace the 'ytplayer' element with an <iframe> and
 // YouTube player after the API code downloads.
@@ -16,23 +16,14 @@ function onYouTubePlayerAPIReady() {
     player = new YT.Player('youtube', {
         width: '448',
         height: '252',
-        videoId: '9CTbniZhR9I',
         playerVars: {
             controls: '0',
             iv_load_policy: '3',
-            showinfo: '0',
         },
         events: {
-            onReady: () => { 
-                if (autoplayed) player.playVideo();
-            },
-            onStateChange: event => {
-                console.log(event.data);
-
-                if (event.data === YT.PlayerState.ENDED) {
-                    //player.loadVideoById(testVideos[1]);
-                }
-            },
+            onReady: () => { if (autoplayed) player.playVideo(); },
+            onError: () => console.log("YT ERROR"),
+            onStateChange: event => console.log(`YT STATE: ${event.data}`),
         }
     });
 }
@@ -50,17 +41,22 @@ class WebSocketMessaging {
         this.handlers = new Map();
     }
 
-    async connect(address) {
-        await this.disconnect();
+    connect(address) {
+        this.disconnect();
         this.websocket = new WebSocket(address);
         this.websocket.onopen = event => this.onOpen(event);
         this.websocket.onclose = event => this.onClose(event);
-        this.websocket.onerror = event => this.onError(event);
         this.websocket.onmessage = event => this.onMessage(event);
     }
 
-    async disconnect() {
+    reconnect() {
+        console.log("reconnecting");
+        this.connect(this.websocket.url);
+    }
+
+    disconnect() {
         if (!this.websocket) return;
+        this.websocket.onclose = undefined;
         this.websocket.close(1000);
         this.websocket = undefined;
     }
@@ -88,19 +84,25 @@ class WebSocketMessaging {
     }
 
     onOpen(event) {
-
+        console.log('open:', event);
+        console.log(this.websocket.readyState);
     }
 
-    onClose(event) {
+    async onClose(event) {
+        console.log(`closed: ${event.code}, ${event.reason}`, event);
 
-    }
-
-    onError(event) {
-
+        if (event.code !== 1000) {
+            await sleep(500);
+            this.reconnect();
+        }
     }
 }
 
-async function load() {    
+async function load() {
+    setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
+
+    const urlparams = new URLSearchParams(window.location.search);
+
     const serverInput = document.querySelector('#server-input');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
@@ -108,25 +110,33 @@ async function load() {
     const chatLines = [];
 
     const messaging = new WebSocketMessaging();
-    await messaging.connect("wss://echo.websocket.org");
-    await messaging.wait();
     messaging.setHandler('youtube', message => player.loadVideoById(message.videoId));
     messaging.setHandler('chat', message => logChat(`[${message.user}] ${message.text}`));
-    
+
+    window.onbeforeunload = () => messaging.disconnect();
+
+    if (urlparams.has('zone')) {
+        const zone = urlparams.get('zone');
+        serverInput.value = `ws://${zone}`;
+    }
+
+    messaging.connect(serverInput.value);
+
     // pretend to be server to the echo service
-    messaging.send('youtube', {videoId: '4OtsoZrGZTc'});
-    messaging.send('chat', {text:'hello', user:'max'});
+    //await messaging.wait();
+    //messaging.send('youtube', {videoId: '4OtsoZrGZTc'});
+    //messaging.send('chat', {text:'hello', user:'max'});
     
     // connection status for websocket input
     function update() {
-        if (!messaging.websocket) {
+        if (!messaging.websocket || messaging.websocket.readyState === WebSocket.CLOSED) {
             serverInput.style = "background: red";
         } else if (messaging.websocket.readyState === WebSocket.OPEN) {
             serverInput.style = "background: green";
         } else if (messaging.websocket.readyState === WebSocket.CONNECTING) {
             serverInput.style = "background: yellow";
         } else {
-            serverInput.style = "background: red";
+            serverInput.style = "background: magenta";
         }
 
         window.requestAnimationFrame(() => update());
@@ -134,8 +144,7 @@ async function load() {
 
     update();
 
-    serverInput.onchange = () => messaging.connect(serverInput.value);
-    //
+    serverInput.onchange = () => messaging.connect(`ws://${serverInput.value}`);
 
     function logChat(text) {
         chatLines.push(text);

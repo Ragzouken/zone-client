@@ -9,6 +9,11 @@ html, body {
 
 html {
     background: black;
+    font-size: 1.2rem;
+}
+
+input {
+    font-size: 1.2rem;
 }
 
 #chat {
@@ -40,14 +45,33 @@ html {
     transform: translate(-50%, -50%);
 }
 
+#insert {
+    position: absolute;
+    left: 32px; top: 32px;
+    width: 448px; height: 252px;
+    pointer-events: none;
+    z-index: -1;
+}
+
 canvas {
     width: 100%;
     height: 100%;
 }
 
+#noyoutube {
+    position: absolute;
+    width: 100%; height: 100%;
+
+    z-index: -2;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5em;
+}
+
 #youtube {
     position: absolute;
-    left: 32px; top: 32px;
-    pointer-events: none;
-    z-index: -1;
+    width: 100%; height: 100%;
 }
