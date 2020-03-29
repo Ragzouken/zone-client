@@ -6,8 +6,12 @@ html
             include style.css
         script
             include script.js
+        script(src="https://cdn.jsdelivr.net/npm/hls.js@latest")
     body(onload="load()")
+        #content
+            #youtube
+            canvas(width=512, height=512)
         #chat
-            input#server-input(type="text", placeholder="server address...")
+            input#server-input(type="text", placeholder="server address...", value="wss://echo.websocket.org")
             #chat-log
             input#chat-input(type="text", placeholder="chat message...")

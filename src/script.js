@@ -1,23 +1,123 @@
-async function load() {
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+var tag = document.createElement('script');
+tag.src = "https://www.youtube.com/player_api";
+var firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+let autoplayed = false;
+const testVideos = ['9CTbniZhR9I', '4OtsoZrGZTc'];
+
+// Replace the 'ytplayer' element with an <iframe> and
+// YouTube player after the API code downloads.
+var player;
+function onYouTubePlayerAPIReady() {
+    player = new YT.Player('youtube', {
+        width: '448',
+        height: '252',
+        videoId: '9CTbniZhR9I',
+        playerVars: {
+            controls: '0',
+            iv_load_policy: '3',
+            showinfo: '0',
+        },
+        events: {
+            onReady: () => { 
+                if (autoplayed) player.playVideo();
+            },
+            onStateChange: event => {
+                console.log(event.data);
+
+                if (event.data === YT.PlayerState.ENDED) {
+                    //player.loadVideoById(testVideos[1]);
+                }
+            },
+        }
+    });
+}
+
+document.addEventListener('click', () => {
+    if (!autoplayed) {
+        autoplayed = true;
+        if (player) player.playVideo();
+    }
+});
+
+class WebSocketMessaging {
+    constructor() {
+        this.websocket = undefined;
+        this.handlers = new Map();
+    }
+
+    async connect(address) {
+        await this.disconnect();
+        this.websocket = new WebSocket(address);
+        this.websocket.onopen = event => this.onOpen(event);
+        this.websocket.onclose = event => this.onClose(event);
+        this.websocket.onerror = event => this.onError(event);
+        this.websocket.onmessage = event => this.onMessage(event);
+    }
+
+    async disconnect() {
+        if (!this.websocket) return;
+        this.websocket.close(1000);
+        this.websocket = undefined;
+    }
+
+    async wait() {
+        while (this.websocket.readyState === WebSocket.CONNECTING)
+            await sleep(10);
+    }
+
+    send(type, message) {
+        message.type = type;
+        this.websocket.send(JSON.stringify(message));
+    }
+
+    setHandler(type, handler) {
+        this.handlers.set(type, handler);
+    }
+
+    onMessage(event) {
+        const message = JSON.parse(event.data);
+        const handler = this.handlers.get(message.type);
+        
+        if (handler) handler(message);
+        else console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+    }
+
+    onOpen(event) {
+
+    }
+
+    onClose(event) {
+
+    }
+
+    onError(event) {
+
+    }
+}
+
+async function load() {    
     const serverInput = document.querySelector('#server-input');
     const chatInput = document.querySelector('#chat-input');
     const chatLog = document.querySelector('#chat-log');
     const chatLines = [];
 
-    let websocket;
-    function connect(address) {
-        websocket = new WebSocket(address);
-        websocket.onopen = event => addChat('... connected ...');
-        websocket.onerror = event => addChat('... failed to connect ...');
-        websocket.onmessage = event => addChat(event.data);
-    }
+    const messaging = new WebSocketMessaging();
+    await messaging.connect("wss://echo.websocket.org");
+    await messaging.wait();
+    messaging.setHandler('youtube', message => player.loadVideoById(message.videoId));
+    messaging.send('youtube', {videoId: '4OtsoZrGZTc'});
 
     function update() {
-        if (!websocket) {
+        if (!messaging.websocket) {
             serverInput.style = "background: red";
-        } else if (websocket.readyState === WebSocket.OPEN) {
+        } else if (messaging.websocket.readyState === WebSocket.OPEN) {
             serverInput.style = "background: green";
-        } else if (websocket.readyState === WebSocket.CONNECTING) {
+        } else if (messaging.websocket.readyState === WebSocket.CONNECTING) {
             serverInput.style = "background: yellow";
         } else {
             serverInput.style = "background: red";
@@ -34,12 +134,12 @@ async function load() {
     }
     
     function sendChat(text) {
-        websocket.send(text);
+        messaging.send('chat', {text});
         addChat('(you) ' + text);
     }
 
     serverInput.addEventListener('change', event => {
-        connect(serverInput.value);
+        messaging.connect(serverInput.value);
     });
 
     document.addEventListener('keydown', event => {
@@ -48,4 +148,23 @@ async function load() {
             chatInput.value = "";
         }
     });
+
+    const canvas = document.querySelector('canvas');
+    const context = canvas.getContext('2d');
+    context.fillStyle = 'rgb(255, 255, 255)';
+    context.fillRect(0, 0, 512, 512);
+    context.clearRect(32, 32, 448, 252);
+
+    for (let i = 0; i < 512; ++i) {
+        const [r, g, b] = [randomInt(0, 255), randomInt(0, 255), randomInt(0, 255)];
+        const [x, y] = [randomInt(-64, 512), randomInt(-64, 512)];
+
+        if (x+24 > 32 && x+24 < 512-32 && y+24 > 32 && y+24 < 284)
+            continue;
+
+        context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        context.fillRect(x, y, 48, 48);
+    }
+
+
 }

@@ -7,6 +7,10 @@ html, body {
     padding: 0;
 }
 
+html {
+    background: black;
+}
+
 #chat {
     margin: auto;
 
@@ -22,4 +26,25 @@ html, body {
 
 #chat-log {
     flex: 1;
+}
+
+#content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 512px;
+    height: 512px;
+    transform: translate(-50%, -50%);
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+}
+
+#youtube {
+    position: absolute;
+    left: 32px; top: 32px;
+    pointer-events: none;
+    z-index: -1;
 }
