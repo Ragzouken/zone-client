@@ -102,6 +102,7 @@ class WebSocketMessaging {
 
 async function load() {    
     const serverInput = document.querySelector('#server-input');
+    const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
     const chatLog = document.querySelector('#chat-log');
     const chatLines = [];
@@ -110,8 +111,13 @@ async function load() {
     await messaging.connect("wss://echo.websocket.org");
     await messaging.wait();
     messaging.setHandler('youtube', message => player.loadVideoById(message.videoId));
+    messaging.setHandler('chat', message => logChat(`[${message.user}] ${message.text}`));
+    
+    // pretend to be server to the echo service
     messaging.send('youtube', {videoId: '4OtsoZrGZTc'});
-
+    messaging.send('chat', {text:'hello', user:'max'});
+    
+    // connection status for websocket input
     function update() {
         if (!messaging.websocket) {
             serverInput.style = "background: red";
@@ -128,27 +134,26 @@ async function load() {
 
     update();
 
-    function addChat(text) {
+    serverInput.onchange = () => messaging.connect(serverInput.value);
+    //
+
+    function logChat(text) {
         chatLines.push(text);
         chatLog.innerText = chatLines.join('\n');
     }
-    
-    function sendChat(text) {
-        messaging.send('chat', {text});
-        addChat('(you) ' + text);
-    }
-
-    serverInput.addEventListener('change', event => {
-        messaging.connect(serverInput.value);
-    });
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
-            sendChat(chatInput.value);
+            const command = chatInput.value;
+            if (command.startsWith('/youtube '))
+                messaging.send('youtube', {videoId: command.slice(9).trim()});
+            else
+                messaging.send('chat', {text: command, user: chatName.value});
             chatInput.value = "";
         }
     });
 
+    // test canvas over youtube video
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('2d');
     context.fillStyle = 'rgb(255, 255, 255)';
@@ -165,6 +170,4 @@ async function load() {
         context.fillStyle = `rgb(${r}, ${g}, ${b})`;
         context.fillRect(x, y, 48, 48);
     }
-
-
 }
