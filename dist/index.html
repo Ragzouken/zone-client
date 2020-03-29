@@ -3,7 +3,11 @@
   <head>
     <title>zone</title>
     <meta charset="utf-8">
-    <style>* { box-sizing: border-box; }
+    <style>:root {
+    --game-width: 512px;
+}
+
+* { box-sizing: border-box; }
 
 html, body {
     height: 100%;
@@ -13,6 +17,15 @@ html, body {
 
     background-color: #2E2F31;
     color: #999;
+}
+
+input[type="checkbox"] {
+    margin: 0;
+    float: left;
+}
+
+#avatar-editor {
+    width: 8em;
 }
 
 #chat {
@@ -33,9 +46,14 @@ html, body {
     flex: 1;
 }
 
+#customisation {
+    width: var(--game-width);
+    float: left;
+}
+
 #zone {
-    width: 512px;
-    height: 512px;
+    width: var(--game-width);
+    height: var(--game-width);
     float: left;
 }
 
@@ -98,7 +116,76 @@ html, body {
     <div id="zone">
       <div id="youtube"></div>
       <div id="background"></div>
-      <canvas class="player"></canvas>
+      <canvas class="player-avatar"></canvas>
+    </div>
+    <div id="customisation">
+      <input type="text" id="player-name" value="asdf">
+      <div id="avatar-editor">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+        <input type="checkbox" checked>
+        <input type="checkbox">
+      </div>
     </div>
     <div id="chat">
       <input id="server-input" type="text" placeholder="server address...">

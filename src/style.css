@@ -1,3 +1,7 @@
+:root {
+    --game-width: 512px;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -8,6 +12,15 @@ html, body {
 
     background-color: #2E2F31;
     color: #999;
+}
+
+input[type="checkbox"] {
+    margin: 0;
+    float: left;
+}
+
+#avatar-editor {
+    width: 8em;
 }
 
 #chat {
@@ -28,8 +41,13 @@ html, body {
     flex: 1;
 }
 
+#customisation {
+    width: var(--game-width);
+    float: left;
+}
+
 #zone {
-    width: 512px;
-    height: 512px;
+    width: var(--game-width);
+    height: var(--game-width);
     float: left;
 }

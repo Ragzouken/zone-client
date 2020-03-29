@@ -11,7 +11,14 @@ html(lang="en-gb")
         #zone
             #youtube
             #background
-            canvas.player
+            canvas.player-avatar
+        #customisation
+            input(type="text" id="player-name" value="asdf")
+            #avatar-editor
+                - let n = 0;
+                while n < 64
+                    input(type="checkbox" checked=(n % 2 === 0))
+                    - n++
         #chat
             input#server-input(type="text", placeholder="server address...")
             #chat-log
