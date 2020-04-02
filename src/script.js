@@ -21,7 +21,7 @@ function onYouTubePlayerAPIReady() {
             iv_load_policy: '3',
         },
         events: {
-            onReady: () => { if (autoplayed) player.playVideo(); },
+            onReady: () => { load(); },
             onError: () => console.log("YT ERROR"),
             onStateChange: event => console.log(`YT STATE: ${event.data}`),
         }
@@ -109,9 +109,43 @@ async function load() {
     const chatLog = document.querySelector('#chat-log');
     const chatLines = [];
 
+    let userId;
+    const usernames = new Map();
+
+    function getUsername(userId) {
+        return usernames.get(userId) || userId;
+    }
+
     const messaging = new WebSocketMessaging();
-    messaging.setHandler('youtube', message => player.loadVideoById(message.videoId));
-    messaging.setHandler('chat', message => logChat(`[${message.user}] ${message.text}`));
+    messaging.setHandler('assign', message => {
+        logChat('<b>--connected--</b>');
+        userId = message.userId;
+        if (chatName.value.length > 0)
+            messaging.send('name', { name: chatName.value });
+    });
+    messaging.setHandler('youtube', message => {
+        console.log(message);
+        const { videoId, title, duration, time } = message;
+        player.loadVideoById(videoId, time / 1000);
+        logChat(`<b>📼 ${title} (${duration}s)</b>`);
+    });
+    messaging.setHandler('chat', message => logChat(`[${getUsername(message.userId)}] ${message.text}`));
+    messaging.setHandler('name', message => {
+        if (!usernames.has(message.userId)) {
+            logChat(`<b>👋 ${message.name} joined</b>`);
+        } else {
+            logChat(`<b>🏷 ${usernames.get(message.userId)} is now ${message.name}</b>`);
+        }
+
+        usernames.set(message.userId, message.name);
+    });
+
+    messaging.setHandler('search', message => {
+        const { query, results } = message;
+        messaging.send('youtube', {videoId: results[0].videoId});
+    });
+
+    setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
 
     window.onbeforeunload = () => messaging.disconnect();
 
@@ -121,6 +155,11 @@ async function load() {
     }
 
     messaging.connect(serverInput.value);
+
+    chatName.addEventListener('change', () => {
+        if (userId)
+            messaging.send('name', { name: chatName.value });
+    });
 
     // pretend to be server to the echo service
     //await messaging.wait();
@@ -148,16 +187,21 @@ async function load() {
 
     function logChat(text) {
         chatLines.push(text);
-        chatLog.innerText = chatLines.join('\n');
+        chatLog.innerHTML = chatLines.join('<br>');
+        chatLog.scrollTop = chatLog.scrollHeight;
     }
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
             const command = chatInput.value;
-            if (command.startsWith('/youtube '))
+            if (command.startsWith('/search'))
+                messaging.send('search', {query: command.slice(7).trim()});
+            else if (command.startsWith('/youtube '))
                 messaging.send('youtube', {videoId: command.slice(9).trim()});
+            else if (command.startsWith('/skip'))
+                messaging.send('skip', {password: command.slice(5).trim()})
             else
-                messaging.send('chat', {text: command, user: chatName.value});
+                messaging.send('chat', {text: command});
             chatInput.value = "";
         }
     });
@@ -165,9 +209,9 @@ async function load() {
     // test canvas over youtube video
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('2d');
-    context.fillStyle = 'rgb(255, 255, 255)';
-    context.fillRect(0, 0, 512, 512);
-    context.clearRect(32, 32, 448, 252);
+    context.clearRect(0, 0, 512, 512);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(document.querySelector('img'), 0, 0, 512, 512);
 
     for (let i = 0; i < 512; ++i) {
         const [r, g, b] = [randomInt(0, 255), randomInt(0, 255), randomInt(0, 255)];
@@ -177,6 +221,6 @@ async function load() {
             continue;
 
         context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-        context.fillRect(x, y, 48, 48);
+        //context.fillRect(x, y, 48, 48);
     }
 }

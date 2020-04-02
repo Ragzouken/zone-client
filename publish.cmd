@@ -1,2 +1,3 @@
 call build
-neocities upload -d zone .\dist\index.html
+call neocities upload -d zone .\dist\index.html
+neocities upload -d zone .\dist\frame.png
