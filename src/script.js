@@ -98,12 +98,14 @@ class WebSocketMessaging {
     }
 }
 
+const pad = number => number.toString().length >= 2 ? number.toString() : "0" + number.toString(); 
+
 function secondsToTime(seconds) {
     const s = seconds % 60;
     const m = Math.floor(seconds / 60) % 60;
     const h = Math.floor(seconds / 360);
 
-    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
 async function load() {
@@ -145,7 +147,7 @@ async function load() {
     });
     messaging.setHandler('queue', message => {
         if (message.videos.length === 1)
-            logChat(`<b>➕ ${message.videos[0].title} (${message.videos[0].duration}s)</b>`);
+            logChat(`<b>➕ ${message.videos[0].title} (${secondsToTime(message.videos[0].duration)})</b>`);
         logQueue(message.videos);
     });
     messaging.setHandler('youtube', message => {
@@ -155,7 +157,7 @@ async function load() {
         }
         const { videoId, title, duration, time } = message;
         player.loadVideoById(videoId, time / 1000);
-        logChat(`<b>📼 ${title} (${duration}s)</b>`);
+        logChat(`<b>📼 ${title} (${secondsToTime(duration)}s)</b>`);
 
         currentVideo = message;
         queue = queue.filter(video => video.videoId !== videoId);
@@ -292,17 +294,38 @@ async function load() {
         return context;
     }
 
+
     // test canvas over youtube video
+    const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
+
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
 
-    const room = context2d(512, 512);
-    room.clearRect(0, 0, 512, 512);
-    room.drawImage(document.querySelector('img'), 0, 0, 512, 512);
+    const room = blitsy.createContext2D(512, 512);
+    room.imageSmoothingEnabled = false;
+    room.fillStyle = 'rgb(0, 82, 204)';
+    room.fillRect(0, 0, 512, 512);
+    room.clearRect(32, 32, 448, 252)
+
+    const dialog = blitsy.createContext2D(256, 256);
 
     function redraw() {
+        dialog.clearRect(0, 0, 256, 256);
+
         context.clearRect(0, 0, 512, 512);
         context.drawImage(room.canvas, 0, 0);
+    
+        function renderText(text, x, y) {
+            Array.from(text).forEach((char, i) => {
+                const character = font.characters.get(char.codePointAt(0));
+                blitsy.drawSprite(dialog, character.sprite, x, y);
+                x += character.spacing;
+            });
+        }
+
+        const remaining = Math.round(player.getDuration() - player.getCurrentTime());
+        renderText(`${secondsToTime(remaining)}`, 16+1, 16+1);
 
         avatars.forEach(avatar => {
             const { position } = avatar;
@@ -333,6 +356,9 @@ async function load() {
             context.fillStyle = `rgb(${r}, ${g}, ${b})`;
             context.fillRect(x, y, 32, 32);
         });
+
+        dialog.imageSmoothingEnabled = false;
+        context.drawImage(dialog.canvas, 0, 0, 512, 512);
 
         window.requestAnimationFrame(redraw);
     }
