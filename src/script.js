@@ -274,11 +274,12 @@ async function load() {
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
 
-        if (!typing && event.key === 't') {
+        if (!typing && event.key === 'Tab') {
             chatInput.focus();
             event.preventDefault();
-        } else if (typing && event.key === 'Escape') {
+        } else if (typing && (event.key === 'Tab' || event.key === 'Escape')) {
             chatInput.blur();
+            event.preventDefault();
         }
 
         if (typing && event.key === 'Enter') {
@@ -301,15 +302,22 @@ async function load() {
 
         if (typing)
             return;
+
+        function toggleEmote(emote) {
+            const avatar = avatars.get(userId);
+            if (!avatar) return;
+            if (avatar.emotes.includes(emote))
+                messaging.send('emotes', { emotes: avatar.emotes.filter(e => e !== emote) });
+            else
+                messaging.send('emotes', { emotes: avatar.emotes.concat([emote]) });
+        }
         
         if (event.key === '1')
-            messaging.send('emotes', {emotes: [] });
+            toggleEmote('wvy');
         else if (event.key === '2')
-            messaging.send('emotes', {emotes: ['wvy'] });
+            toggleEmote('shk');
         else if (event.key === '3')
-            messaging.send('emotes', {emotes: ['shk'] });
-        else if (event.key === '4')
-            messaging.send('emotes', {emotes: ['rbw'] });
+            toggleEmote('rbw');
 
         if (event.key === "q") {
             showQueue = !showQueue;
