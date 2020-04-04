@@ -1,5 +1,17 @@
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const clamp = (min, max, value) => Math.max(min, Math.min(max, value));
+
+const avatarImage = blitsy.decodeAsciiTexture(`
+___XX___
+___XX___
+___XX___
+__XXXX__
+_XXXXXX_
+X_XXXX_X
+__X__X__
+__X__X__
+`, "X");
 
 var tag = document.createElement('script');
 tag.onerror = () => console.log("youtube error :(");
@@ -103,7 +115,7 @@ const pad = number => number.toString().length >= 2 ? number.toString() : "0" + 
 function secondsToTime(seconds) {
     const s = seconds % 60;
     const m = Math.floor(seconds / 60) % 60;
-    const h = Math.floor(seconds / 360);
+    const h = Math.floor(seconds / 3600);
 
     return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
@@ -133,6 +145,8 @@ async function load() {
     function getUsername(userId) {
         return usernames.get(userId) || userId;
     }
+
+    let showQueue = false;
 
     const messaging = new WebSocketMessaging();
     messaging.setHandler('heartbeat', () => {});
@@ -251,13 +265,23 @@ async function load() {
     function move(dx, dy) {
         const avatar = avatars.get(userId);
         if (!avatar) return;
-        avatar.position[0] += dx;
-        avatar.position[1] += dy;
+        avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
+        avatar.position[1] = clamp(0, 15, avatar.position[1] + dy);
+
         messaging.send('move', { position: avatar.position });
     }
 
     document.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
+        const typing = document.activeElement.tagName === "INPUT";
+
+        if (!typing && event.key === 't') {
+            chatInput.focus();
+            event.preventDefault();
+        } else if (typing && event.key === 'Escape') {
+            chatInput.blur();
+        }
+
+        if (typing && event.key === 'Enter') {
             const command = chatInput.value;
             if (command.startsWith('/search'))
                 messaging.send('search', {query: command.slice(7).trim()});
@@ -272,8 +296,25 @@ async function load() {
             else
                 messaging.send('chat', {text: command});
             chatInput.value = "";
+            chatInput.blur();
         } 
+
+        if (typing)
+            return;
         
+        if (event.key === '1')
+            messaging.send('emotes', {emotes: [] });
+        else if (event.key === '2')
+            messaging.send('emotes', {emotes: ['wvy'] });
+        else if (event.key === '3')
+            messaging.send('emotes', {emotes: ['shk'] });
+        else if (event.key === '4')
+            messaging.send('emotes', {emotes: ['rbw'] });
+
+        if (event.key === "q") {
+            showQueue = !showQueue;
+        }
+
         if (event.key === 'ArrowLeft') {
             move(-1,  0);
         } else if (event.key === 'ArrowRight') {
@@ -285,16 +326,6 @@ async function load() {
         }
     });
 
-    function context2d(width, height) {
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext('2d');
-        context.imageSmoothingEnabled = false;
-        return context;
-    }
-
-
     // test canvas over youtube video
     const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 
@@ -303,10 +334,9 @@ async function load() {
     context.imageSmoothingEnabled = false;
 
     const room = blitsy.createContext2D(512, 512);
-    room.imageSmoothingEnabled = false;
     room.fillStyle = 'rgb(0, 82, 204)';
     room.fillRect(0, 0, 512, 512);
-    room.clearRect(32, 32, 448, 252)
+    room.clearRect(32, 32, 448, 252);
 
     const dialog = blitsy.createContext2D(256, 256);
 
@@ -323,9 +353,6 @@ async function load() {
                 x += character.spacing;
             });
         }
-
-        const remaining = Math.round(player.getDuration() - player.getCurrentTime());
-        renderText(`${secondsToTime(remaining)}`, 16+1, 16+1);
 
         avatars.forEach(avatar => {
             const { position } = avatar;
@@ -345,19 +372,40 @@ async function load() {
 
             let [r, g, b] = [255, 255, 255];
 
-            if (avatar.emotes.includes('rbw')) {
-                const h = Math.abs( Math.sin( (performance.now() / 600) - (position[0] / 8) ) );
-                [r, g, b] = hslToRgb( h, 1, 0.5 );
-            }
 
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
 
-            context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            context.fillRect(x, y, 32, 32);
+            if (avatar.emotes.includes('rbw')) {
+                const h = Math.abs( Math.sin( (performance.now() / 600) - (position[0] / 8) ) );
+                [r, g, b] = hslToRgb( h, 1, 0.5 );
+                context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                context.fillRect(x, y, 32, 32);
+            }
+
+            context.drawImage(avatarImage.canvas, x, y, 32, 32);
         });
 
-        dialog.imageSmoothingEnabled = false;
+        const cols = 37;
+        function line(title, seconds, row) {
+            const time = ' - ' + secondsToTime(seconds);
+            const limit = cols - time.length;
+            const cut = title.slice(0, limit).padEnd(limit, " ");
+
+            renderText(cut + time, 16+1, 16+2 + font.lineHeight * row);
+        }
+
+        const remaining = Math.round(player.getDuration() - player.getCurrentTime());
+        if (currentVideo)
+            line(currentVideo.title, remaining, 0);
+
+        if (showQueue) {
+            queue.forEach((video, i) => {
+                line(video.title, video.duration, i + 1);
+            });
+            renderText('*** END ***', 16+1, 16+2 + font.lineHeight * (queue.length + 1));
+        }
+
         context.drawImage(dialog.canvas, 0, 0, 512, 512);
 
         window.requestAnimationFrame(redraw);
