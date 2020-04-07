@@ -214,6 +214,7 @@ async function load() {
     messaging.setHandler('heartbeat', () => {});
     messaging.setHandler('assign', message => {
         logChat('{clr=#00FF00}*** connected ***{-clr}');
+        listHelp();
         userId = message.userId;
         if (chatName.value.length > 0)
             messaging.send('name', { name: chatName.value });
@@ -341,6 +342,10 @@ async function load() {
         logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}{-clr}`);
     }
 
+    function listHelp() {
+        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /help{-clr}');
+    }
+
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
 
@@ -368,6 +373,8 @@ async function load() {
                 messaging.send('avatar', {data: catData});
             else if (command.startsWith('/users'))
                 listUsers();
+            else if (command.startsWith('/help'))
+                listHelp();
             else
                 messaging.send('chat', {text: command});
             chatInput.value = "";
