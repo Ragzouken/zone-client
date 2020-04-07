@@ -1100,6 +1100,13 @@ async function load() {
         usernames.delete(userId);
     }
 
+    messaging.setHandler('users', message => {
+        message.names.forEach(([user, name], index) => {
+            usernames.set(user, name);
+        });
+        listUsers();
+    });
+
     messaging.setHandler('leave', message => removeUser(message.userId));
     messaging.setHandler('move', message => {
         if (message.userId !== userId || !avatars.has(userId)) {
@@ -1124,14 +1131,15 @@ async function load() {
     });
     messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
     messaging.setHandler('name', message => {
-        if (!usernames.has(message.userId)) {
+        if (message.userId === userId) {
+            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}{-clr}`);
+        } else if (!usernames.has(message.userId)) {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
         } else {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${usernames.get(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
+            logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
         }
 
         usernames.set(message.userId, message.name);
-        refreshUsers();
     });
 
     messaging.setHandler('search', message => {
