@@ -192,7 +192,6 @@ async function load() {
     const youtube = document.querySelector('#youtube');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    const userList = document.querySelector('#user-list');
     let chatLines = [];
 
     chatName.value = localStorage.getItem('name') || "";
@@ -247,11 +246,6 @@ async function load() {
     function removeUser(userId) {
         avatars.delete(userId);
         usernames.delete(userId);
-        refreshUsers();
-    }
-
-    function refreshUsers() {
-        userList.innerHTML = Array.from(usernames.values()).join('<br>');
     }
 
     messaging.setHandler('leave', message => removeUser(message.userId));
@@ -343,6 +337,10 @@ async function load() {
         messaging.send('move', { position: avatar.position });
     }
 
+    function listUsers() {
+        logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}{-clr}`);
+    }
+
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
 
@@ -368,6 +366,8 @@ async function load() {
                 messaging.send('emotes', { emotes: command.slice(6).trim().split(' ')});
             else if (command.startsWith('/cat'))
                 messaging.send('avatar', {data: catData});
+            else if (command.startsWith('/users'))
+                listUsers();
             else
                 messaging.send('chat', {text: command});
             chatInput.value = "";

@@ -11,15 +11,14 @@ html
             include script.js
     body
         #main
-            #content
+            #scene
                 #insert
                     #noyoutube 
                         span youtube has not loaded
                     #youtube
                 canvas#scene-canvas(width=512, height=512)
-        #chat
-            #user-list
             canvas#chat-canvas(width=512, height=512)
+        #chat
             input#chat-name(type="text", placeholder="your name...")
             input#chat-input(type="text", placeholder="chat message...")
             #commands
