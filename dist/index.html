@@ -1249,12 +1249,16 @@ async function load() {
 
         if (event.key === 'ArrowLeft') {
             move(-1,  0);
+            event.preventDefault();
         } else if (event.key === 'ArrowRight') {
             move( 1,  0);
+            event.preventDefault();
         } else if (event.key === 'ArrowDown') {
             move( 0,  1);
+            event.preventDefault();
         } else if (event.key === 'ArrowUp') {
             move( 0, -1);
+            event.preventDefault();
         }
     });
 
