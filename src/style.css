@@ -16,45 +16,41 @@ input {
     font-size: 1.2rem;
 }
 
+input:focus {
+    border: solid red 3px;
+}
+
+body {
+    display: flex;
+    flex-direction: row;
+}
+
+#main {
+    position: relative;
+    flex: 1;
+}
+
 #chat {
     background: white;
 
-    position: absolute;
-    right: 0;
-    
-    max-width: 100%;
-    max-height: 100%;
-
-    width: 256px;
+    width: 512px;
     height: 100%;
+    max-width: calc(100% - 512px);
 
     display: flex;
     flex-direction: column;
 }
 
-#chat-log {
-    flex: 1;
+#user-list {
     overflow-y: auto;
-}
-
-#queue {
-    background: white;
-
-    position: absolute;
-    left: 0;
-    
-    max-width: 100%;
-    max-height: 100%;
-
-    width: 256px;
-    height: 100%;
-
-    display: flex;
-    flex-direction: column;
-}
-
-#queue-log {
     flex: 1;
+
+    margin: 2px;
+    padding: 2px;
+    border: 2px solid black;
+}
+
+#commands {
     overflow-y: auto;
 }
 
@@ -72,12 +68,7 @@ input {
     left: 32px; top: 32px;
     width: 448px; height: 252px;
     pointer-events: none;
-    z-index: -1;
-}
-
-canvas {
-    width: 100%;
-    height: 100%;
+    /*z-index: -1;*/
 }
 
 #noyoutube {
@@ -96,4 +87,5 @@ canvas {
 #youtube {
     position: absolute;
     width: 100%; height: 100%;
+    mix-blend-mode: screen;
 }

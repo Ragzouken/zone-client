@@ -13,6 +13,70 @@ __X__X__
 __X__X__
 `, "X");
 
+const catImage = blitsy.decodeAsciiTexture(`
+________
+________
+_X_X___X
+_XXX___X
+_XXX__X_
+_XXXXX__
+__XXXX__
+__X__X__
+`, "X");
+
+catData = blitsy.encodeTexture(catImage, 'M1').data;
+
+const floorTile = blitsy.decodeAsciiTexture(`
+________
+_X_X_X_X
+________
+__X_____
+________
+X_X_X_X_
+________
+_____X__
+`, 'X');
+
+const brickTile = blitsy.decodeAsciiTexture(`
+###_####
+###_####
+###_####
+________
+#######_
+#######_
+#######_
+________
+`, '#');
+
+const recolorBuffer = blitsy.createContext2D(8, 8);
+
+function recolored(tile, color) {
+    recolorBuffer.clearRect(0, 0, 8, 8);
+    recolorBuffer.fillStyle = blitsy.num2hex(color);
+    recolorBuffer.fillRect(0, 0, 8, 8);
+    recolorBuffer.globalCompositeOperation = 'destination-in';
+    recolorBuffer.drawImage(tile.canvas, 0, 0);
+    recolorBuffer.globalCompositeOperation = 'source-over';
+    return recolorBuffer;
+}
+
+const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
+const layout = { font, lineWidth: 240, lineCount: 9999 };
+const chatLines = [];
+
+const avatarTiles = new Map();
+
+function recolor(context) {
+    blitsy.withPixels(context, pixels => {
+        for (let i = 0; i < pixels.length; ++i)
+            if (pixels[i] === 0xFFFFFFFF)
+                pixels[i] = blitsy.rgbaToColor({r: 128, g: 159, b: 255, a: 255});
+    });
+}
+
+recolor(floorTile);
+recolor(brickTile);
+
 var tag = document.createElement('script');
 tag.onerror = () => console.log("youtube error :(");
 tag.src = "https://www.youtube.com/player_api";
@@ -125,15 +189,14 @@ async function load() {
 
     const urlparams = new URLSearchParams(window.location.search);
 
-    const serverInput = document.querySelector('#server-input');
+    const youtube = document.querySelector('#youtube');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    const chatLog = document.querySelector('#chat-log');
-    const chatLines = [];
+    const userList = document.querySelector('#user-list');
+    let chatLines = [];
 
     chatName.value = localStorage.getItem('name') || "";
 
-    const queueLog = document.querySelector('#queue-log');
     let queue = [];
     let currentVideo;
 
@@ -151,7 +214,7 @@ async function load() {
     const messaging = new WebSocketMessaging();
     messaging.setHandler('heartbeat', () => {});
     messaging.setHandler('assign', message => {
-        logChat('<b>⚡⚡⚡ connected ⚡⚡⚡</b>');
+        logChat('{clr=#00FF00}*** connected ***{-clr}');
         userId = message.userId;
         if (chatName.value.length > 0)
             messaging.send('name', { name: chatName.value });
@@ -160,8 +223,11 @@ async function load() {
         usernames.clear();
     });
     messaging.setHandler('queue', message => {
-        if (message.videos.length === 1)
-            logChat(`<b>➕ ${message.videos[0].title} (${secondsToTime(message.videos[0].duration)})</b>`);
+        console.log(message);
+        if (message.videos.length === 1) {
+            const video = message.videos[0];
+            logChat(`{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
+        }
         logQueue(message.videos);
     });
     messaging.setHandler('youtube', message => {
@@ -171,14 +237,24 @@ async function load() {
         }
         const { videoId, title, duration, time } = message;
         player.loadVideoById(videoId, time / 1000);
-        logChat(`<b>📼 ${title} (${secondsToTime(duration)}s)</b>`);
+        logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)}){-clr}`);
 
         currentVideo = message;
         queue = queue.filter(video => video.videoId !== videoId);
         logQueue([]);
     });
 
-    messaging.setHandler('leave', message => avatars.delete(message.userId));
+    function removeUser(userId) {
+        avatars.delete(userId);
+        usernames.delete(userId);
+        refreshUsers();
+    }
+
+    function refreshUsers() {
+        userList.innerHTML = Array.from(usernames.values()).join('<br>');
+    }
+
+    messaging.setHandler('leave', message => removeUser(message.userId));
     messaging.setHandler('move', message => {
         if (message.userId !== userId || !avatars.has(userId)) {
             const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
@@ -186,21 +262,30 @@ async function load() {
             avatars.set(message.userId, avatar);
         }
     });
+    messaging.setHandler('avatar', message => {
+        const texture = {_type: "texture", format: "M1", width: 8, height: 8, data: message.data};
+        const context = blitsy.decodeTexture(texture);
+        avatarTiles.set(message.userId, context);
+    });
     messaging.setHandler('emotes', message => {
         const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
         avatar.emotes = message.emotes;
         avatars.set(message.userId, avatar);
     });
-    messaging.setHandler('chat', message => logChat(`[${getUsername(message.userId)}] ${message.text}`));
-    messaging.setHandler('status', message => logChat(`<b>❗ ${message.text}</b>`));
+    messaging.setHandler('chat', message => {
+        const name = getUsername(message.userId);
+        logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
+    });
+    messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
     messaging.setHandler('name', message => {
         if (!usernames.has(message.userId)) {
-            logChat(`<b>👋 ${message.name} joined</b>`);
+            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
         } else {
-            logChat(`<b>👉 ${usernames.get(message.userId)} is now ${message.name}</b>`);
+            logChat(`{clr=#FF00FF}! {clr=#FF0000}${usernames.get(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
         }
 
         usernames.set(message.userId, message.name);
+        refreshUsers();
     });
 
     messaging.setHandler('search', message => {
@@ -214,12 +299,8 @@ async function load() {
 
     player.addEventListener('onError', () => messaging.send('error', { videoId: currentVideo.videoId }));
 
-    if (urlparams.has('zone')) {
-        const zone = urlparams.get('zone');
-        serverInput.value = `ws://${zone}`;
-    }
-
-    messaging.connect(serverInput.value);
+    const zone = urlparams.get('zone') || 'http://zone-server.glitch.me/zone';
+    messaging.connect('ws://' + zone);
 
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
@@ -227,13 +308,9 @@ async function load() {
             messaging.send('name', { name: chatName.value });
     });
 
-    // pretend to be server to the echo service
-    //await messaging.wait();
-    //messaging.send('youtube', {videoId: '4OtsoZrGZTc'});
-    //messaging.send('chat', {text:'hello', user:'max'});
-    
     // connection status for websocket input
     function update() {
+        return;
         if (!messaging.websocket || messaging.websocket.readyState === WebSocket.CLOSED) {
             serverInput.style = "background: red";
         } else if (messaging.websocket.readyState === WebSocket.OPEN) {
@@ -249,17 +326,12 @@ async function load() {
 
     update();
 
-    serverInput.onchange = () => messaging.connect(`ws://${serverInput.value}`);
-
     function logQueue(videos) {
         queue.push(...videos);
-        queueLog.innerHTML = queue.map(video => `${video.title} (${secondsToTime(video.duration)})`).join('<br>');
     }
 
     function logChat(text) {
-        chatLines.push(text);
-        chatLog.innerHTML = chatLines.join('<br>');
-        chatLog.scrollTop = chatLog.scrollHeight;
+        chatLines.push(text + '{-rbw}{-shk}{-wvy}{-clr}');
     }
 
     function move(dx, dy) {
@@ -294,10 +366,11 @@ async function load() {
                 messaging.send('emotes', { emotes: command.slice(7).trim().split(' ')});
             else if (command.startsWith('/emote'))
                 messaging.send('emotes', { emotes: command.slice(6).trim().split(' ')});
+            else if (command.startsWith('/cat'))
+                messaging.send('avatar', {data: catData});
             else
                 messaging.send('chat', {text: command});
             chatInput.value = "";
-            chatInput.blur();
         } 
 
         if (typing)
@@ -335,34 +408,89 @@ async function load() {
     });
 
     // test canvas over youtube video
-    const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 
-    const canvas = document.querySelector('canvas');
+    const chatContext = document.querySelector('#chat-canvas').getContext('2d');
+    chatContext.imageSmoothingEnabled = false;
+
+    const canvas = document.querySelector('#scene-canvas');
     const context = canvas.getContext('2d');
     context.imageSmoothingEnabled = false;
 
     const room = blitsy.createContext2D(512, 512);
+    room.imageSmoothingEnabled = false;
     room.fillStyle = 'rgb(0, 82, 204)';
     room.fillRect(0, 0, 512, 512);
-    room.clearRect(32, 32, 448, 252);
+
+    for (let x = 0; x < 16; ++x) {
+        for (let y = 0; y < 10; ++y) {
+            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
+        }
+        for (let y = 10; y < 16; ++y) {
+            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
+        }
+    }
+
+    room.fillStyle = 'rgb(0, 0, 0)';
+    room.globalAlpha = .75;
+    room.fillRect(0, 0, 512, 512);
+    //room.clearRect(32, 32, 448, 252);
 
     const dialog = blitsy.createContext2D(256, 256);
+    const pageRenderer = new blitsy.PageRenderer(256, 256);
+
+    const ylimit = 256;
 
     function redraw() {
         dialog.clearRect(0, 0, 256, 256);
+        pageRenderer.pageContext.clearRect(0, 0, 256, 256);
+
+        const page = blitsy.scriptToPages(chatLines.join('\n'), layout).slice(-1)[0];
+        page.forEach((glyph, i) => {
+            glyph.hidden = false;
+            if (glyph.styles.has("r")) glyph.hidden = false;
+            if (glyph.styles.has("clr")) {
+                const hex = glyph.styles.get("clr");
+                const rgb = blitsy.hex2rgb(hex);
+                glyph.color = blitsy.rgb2num(...rgb);
+            }
+            if (glyph.styles.has("shk")) 
+                glyph.offset = blitsy.makeVector2(randomInt(-1, 1), randomInt(-1, 1));
+            if (glyph.styles.has("wvy"))
+                glyph.offset.y = (Math.sin(i + performance.now() * 5 / 1000) * 3) | 0;
+            if (glyph.styles.has("rbw")) {
+                const h = Math.abs( Math.sin( (performance.now() / 600) - (i / 8) ) );
+                [r, g, b] = hslToRgb( h, 1, 0.5 );
+                glyph.color = blitsy.rgb2num(r, g, b);
+            }
+        });
+
+        let offset = 0;
+
+        if (page.length > 0) {
+            const ymax = page.slice(-1)[0].position.y;
+            offset = Math.max(0, ymax - 228);
+        }
+
+        pageRenderer.renderPage(page, 8, 8 - offset);
+
+        chatContext.fillStyle = 'rgb(0, 0, 0)';
+        chatContext.fillRect(0, 0, 512, 512);
+        chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
+
+        youtube.hidden = player.getPlayerState() !== 1;        
 
         context.clearRect(0, 0, 512, 512);
         context.drawImage(room.canvas, 0, 0);
     
         function renderText(text, x, y) {
             Array.from(text).forEach((char, i) => {
-                const character = font.characters.get(char.codePointAt(0));
+                const character = font.characters.get(char.codePointAt(0)) || font.characters.get('?'.codePointAt(0));
                 blitsy.drawSprite(dialog, character.sprite, x, y);
                 x += character.spacing;
             });
         }
 
-        avatars.forEach(avatar => {
+        avatars.forEach((avatar, userId) => {
             const { position } = avatar;
             avatar.emotes = avatar.emotes || [];
 
@@ -384,23 +512,24 @@ async function load() {
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
 
+            let image = avatarTiles.get(userId) || avatarImage;
+
             if (avatar.emotes.includes('rbw')) {
                 const h = Math.abs( Math.sin( (performance.now() / 600) - (position[0] / 8) ) );
                 [r, g, b] = hslToRgb( h, 1, 0.5 );
-                context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                context.fillRect(x, y, 32, 32);
+                image = recolored(image, blitsy.rgb2num(r, g, b));
             }
-
-            context.drawImage(avatarImage.canvas, x, y, 32, 32);
+            
+            context.drawImage(image.canvas, x, y, 32, 32);
         });
 
-        const cols = 37;
+        const cols = 36;
         function line(title, seconds, row) {
-            const time = ' - ' + secondsToTime(seconds);
+            const time = secondsToTime(seconds);
             const limit = cols - time.length;
-            const cut = title.slice(0, limit).padEnd(limit, " ");
+            const cut = title.length < limit ? title.padEnd(limit, " ") : title.slice(0, limit - 4) + "... ";
 
-            renderText(cut + time, 16+1, 16+2 + font.lineHeight * row);
+            renderText(cut + time, 16+4, 16+2 + font.lineHeight * row);
         }
 
         const remaining = Math.round(player.getDuration() - player.getCurrentTime());
@@ -411,7 +540,7 @@ async function load() {
             queue.forEach((video, i) => {
                 line(video.title, video.duration, i + 1);
             });
-            renderText('*** END ***', 16+1, 16+2 + font.lineHeight * (queue.length + 1));
+            renderText('*** END ***', 16+4, 16+2 + font.lineHeight * (queue.length + 1));
         }
 
         context.drawImage(dialog.canvas, 0, 0, 512, 512);
@@ -459,4 +588,3 @@ function hslToRgb(h, s, l) {
   
     return [ r * 255, g * 255, b * 255 ];
   }
-  

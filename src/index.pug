@@ -10,14 +10,18 @@ html
         script
             include script.js
     body
-        #content
-            #insert
-                #noyoutube 
-                    span youtube has not loaded
-                #youtube
-            canvas(width=512, height=512)
-        #queue
-            #queue-log
+        #main
+            #content
+                #insert
+                    #noyoutube 
+                        span youtube has not loaded
+                    #youtube
+                canvas#scene-canvas(width=512, height=512)
+        #chat
+            #user-list
+            canvas#chat-canvas(width=512, height=512)
+            input#chat-name(type="text", placeholder="your name...")
+            input#chat-input(type="text", placeholder="chat message...")
             #commands
                 ul
                     li <b>press tab</b> - toggle typing/controls
@@ -25,8 +29,3 @@ html
                     li <b>press 1/2/3</b> - toggle emotes
                     li <b>/youtube videoId</b>
                     li <b>/search some search terms</b>
-        #chat
-            input#server-input(type="text", placeholder="server address...")
-            #chat-log
-            input#chat-name(type="text", placeholder="your name...")
-            input#chat-input(type="text", placeholder="chat message...")

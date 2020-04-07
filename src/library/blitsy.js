@@ -86,8 +86,152 @@
         return rgbaToColor(hexToRgb(hex));
     }
     exports.hexToColor = hexToColor;
+    function num2hex(value) {
+        return rgb2hex(num2rgb(value));
+    }
+    exports.num2hex = num2hex;
+    function rgb2num(r, g, b, a) {
+        if (a === void 0) { a = 255; }
+        return ((a << 24) | (b << 16) | (g << 8) | (r)) >>> 0;
+    }
+    exports.rgb2num = rgb2num;
+    function num2rgb(value) {
+        var r = (value >> 0) & 0xFF;
+        var g = (value >> 8) & 0xFF;
+        var b = (value >> 16) & 0xFF;
+        return [r, g, b];
+    }
+    exports.num2rgb = num2rgb;
+    function rgb2hex(color) {
+        var r = color[0], g = color[1], b = color[2];
+        var rs = r.toString(16);
+        var gs = g.toString(16);
+        var bs = b.toString(16);
+        if (rs.length < 2) {
+            rs = "0" + rs;
+        }
+        if (gs.length < 2) {
+            gs = "0" + gs;
+        }
+        if (bs.length < 2) {
+            bs = "0" + bs;
+        }
+        return "#" + rs + gs + bs;
+    }
+    exports.rgb2hex = rgb2hex;
+    function hex2rgb(color) {
+        var matches = color.match(/^#([0-9a-f]{6})$/i);
+        if (matches) {
+            var match = matches[1];
+            return [
+                parseInt(match.substr(0, 2), 16),
+                parseInt(match.substr(2, 2), 16),
+                parseInt(match.substr(4, 2), 16)
+            ];
+        }
+        return [0, 0, 0];
+    }
+    exports.hex2rgb = hex2rgb;
     
     },{}],4:[function(require,module,exports){
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var sprite_1 = require("./sprite");
+    var canvas_1 = require("./canvas");
+    var color_1 = require("./color");
+    function recolor(sprite, color) {
+        var _a = [sprite.rect.w, sprite.rect.h], width = _a[0], height = _a[1];
+        var context = canvas_1.createContext2D(width, height);
+        context.fillStyle = '#' + color_1.colorToHex(color);
+        context.fillRect(0, 0, width, height);
+        context.globalCompositeOperation = "destination-in";
+        sprite_1.drawSprite(context, sprite, 0, 0);
+        return sprite_1.imageToSprite(context.canvas);
+    }
+    exports.recolor = recolor;
+    ;
+    function flippedY(context) {
+        var _a = [context.canvas.width, context.canvas.height], w = _a[0], h = _a[1];
+        var flipped = canvas_1.createContext2D(w, h);
+        flipped.save();
+        flipped.translate(0, h);
+        flipped.scale(1, -1);
+        flipped.drawImage(context.canvas, 0, 0, w, h, 0, 0, w, h);
+        flipped.restore();
+        return flipped;
+    }
+    exports.flippedY = flippedY;
+    function withPixels(context, action) {
+        var image = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+        action(new Uint32Array(image.data.buffer));
+        context.putImageData(image, 0, 0);
+    }
+    exports.withPixels = withPixels;
+    ;
+    function drawLine(context, brush, x0, y0, x1, y1) {
+        bresenham(x0, y0, x1, y1, function (x, y) { return sprite_1.drawSprite(context, brush, x, y); });
+    }
+    exports.drawLine = drawLine;
+    ;
+    function fillColor(context, color, x, y) {
+        var _a = [context.canvas.width, context.canvas.height], width = _a[0], height = _a[1];
+        withPixels(context, function (pixels) {
+            var queue = [[x, y]];
+            var done = new Array(width * height);
+            var initial = pixels[y * width + x];
+            function enqueue(x, y) {
+                var within = x >= 0 && y >= 0 && x < width && y < height;
+                if (within && pixels[y * width + x] === initial && !done[y * width + x]) {
+                    queue.push([x, y]);
+                }
+            }
+            while (queue.length > 0) {
+                var _a = queue.pop(), x_1 = _a[0], y_1 = _a[1];
+                pixels[y_1 * width + x_1] = color;
+                done[y_1 * width + x_1] = true;
+                enqueue(x_1 - 1, y_1);
+                enqueue(x_1 + 1, y_1);
+                enqueue(x_1, y_1 - 1);
+                enqueue(x_1, y_1 + 1);
+            }
+        });
+    }
+    exports.fillColor = fillColor;
+    ;
+    function bresenham(x0, y0, x1, y1, plot) {
+        var _a, _b, _c, _d;
+        var steep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
+        if (steep) {
+            _a = [y0, x0], x0 = _a[0], y0 = _a[1];
+            _b = [y1, x1], x1 = _b[0], y1 = _b[1];
+        }
+        var reverse = x0 > x1;
+        if (reverse) {
+            _c = [x1, x0], x0 = _c[0], x1 = _c[1];
+            _d = [y1, y0], y0 = _d[0], y1 = _d[1];
+        }
+        var dx = (x1 - x0);
+        var dy = Math.abs(y1 - y0);
+        var ystep = (y0 < y1 ? 1 : -1);
+        var err = Math.floor(dx / 2);
+        var y = y0;
+        for (var x = x0; x <= x1; ++x) {
+            if (steep) {
+                plot(y, x);
+            }
+            else {
+                plot(x, y);
+            }
+            err -= dy;
+            if (err < 0) {
+                y += ystep;
+                err += dx;
+            }
+        }
+    }
+    exports.bresenham = bresenham;
+    
+    },{"./canvas":2,"./color":3,"./sprite":9}],5:[function(require,module,exports){
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var sprite_1 = require("./sprite");
@@ -120,12 +264,12 @@
     }
     exports.decodeFont = decodeFont;
     
-    },{"./sprite":8,"./texture":9}],5:[function(require,module,exports){
+    },{"./sprite":9,"./texture":11}],6:[function(require,module,exports){
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = { "_type": "font", "format": "U", "name": "ascii_small", "charWidth": 6, "charHeight": 8, "index": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255], "atlas": { "_type": "texture", "format": "M1", "width": 6, "height": 2048, "data": "AAAAAAAAnGiLqsgBnK/6os8BAOX7PocAAEBxHAIACMchvo8AAML5PsIBAAAwDAAA///P8///AOBJkgcA/x+2bfj/AA6zksQAnChyCIcACIYijGMAMEuztG0AgMrZnAoABMPxHEMAEMZ5HAYBCOcjPocAFEVRFEABvKqyKIoCnMhQmMgBAAAAgOcBCOcjPodwCOcjCIIACIIgPocAAIL5GAIAAML4DAIAAAAIguADAEX5FAUACMJxvg8Avs9xCAIAAAAAAAAACMchCIAAti0BAAAAAOVTlE8BBCcwkIMApgkhhCwDhKIQqsQCDEMAAAAACEEQBIEABIIgCEIAAMX5HAUAAIL4CAIAAAAAAMMQAAD4AAAAAAAAAMMAAAghhAAAnCirpsgBCIMgCMIBnAhihOADnAhyoMgBEEZJPgQBviB4oMgBGCF4osgBPgghBEEAnChyosgBnCjyIMQAAMAwAMMAAMAwAMMQEEIIBAIBAOADgA8ABAKBEEIAnAhiCIAAnKirusABnCiKvigCnih6ougBnCgIgsgBniiKougBviB4guADviB4giAAnCjoosgDoij6oigCHIIgCMIBIAiCosgBoqQYiiQCgiAIguADoq2KoigCoqnKoigCnCiKosgBnih6giAAnCiKqsQCnih6kigCnChwoMgBPoIgCIIAoiiKosgBoiiKIoUAoqiqqkoBokghlCgCoihSCIIAHoQQguABHEEQBMEBgEAgEAgAHARBEMQBCCUCAAAAAAAAAAD8DIMAAAAAAMCBvMgDguCJougBAMCJgsgBIMiLosgDAMCJnsABGEF4BEEAAMCLIg9yguBIkiQBCIAgCIIBEIBBECQxgiAphiIBCIIgCIIBAGCpqigCAOBIkiQBAMCJosgBAOCJougJAMCLosiDAKCRBOEAAMAJHMgBAOERBIUAACBJkkYBACCKIoUAACCKqk8BACBJjCQBACBJEocYAOBBjOABGEEYBIEBCIIgCIIgDATBEMQAlAIAAAAACGeLog8AnCgIIocwEiBJkkYBMMCJnsABHMCBvMgDFMCBvMgDDMCBvMgDHMWBvMgDACcKIocwHMCJnsABFMCJnsABDMCJnsABFIAgCIIBCAUgCIIBBIAgCIIBFIBQoi8CHMXZoi8CMOALnuADAOChvsIDvKL4iqIDHMBIksQAFMBIksQABsBIksQAHCBJkkYBBiBJkkYBFCBJEocYEiNJksQAFCBJksQAAMIJAocAGEl4BKkDIoX4iI8AhqJYuiQBEIpwCKIQGMCBvMgDGIAgCIIBGMBIksQAGCBJkkYBlAI4kiQBlAJIliYBHMiLPMADjCRJDOABCIAwgsgBAOALggAAAPCDIAAAgqRwIoQDgqTQKg4CCIAgHIcAAEBKJAAAACCREgAAKlABKlABaqVWaqVW1a/+1a/+CIIgCIIgCII8CIIgACBJkiMIiqIsiqIoAAA8iqIowIM8CIIgyoIsiqIoiqIoiqIowIMsiqIoyoI8AAAAiqI8AAAAyIM8AAAAAAA8CIIgCILgAAAACIL8AAAAAAD8CIIgCILgCIIgAAD8AAAACIL8CIIgCI7gCIIgiqLoiqIoii74AAAAgC/oiqIoyg78AAAAwA/siqIoii7oiqIowA/8AAAAyg7siqIoyA/8AAAAiqL8AAAAwA/8CIIgAAD8iqIoiqL4AAAAAAAAAAD8AAAAAPD/AAAAwP//AAAA////AAD8////APD/////wP//////////////QRAEQRAEwzAMwzAMx3Ecx3Ecz/M8z/M83/d93/d9gCM5kuQIniQIgiAAgE9RFEUBFMCBvMgDAMBLEgMAACBJkiMIAEApCIIAHMKJHMIBjCR5ksQAACeKFGUDjEAgnMQAAECpKgUAAMKpKocAACd4AgcAACNJkgQAgAd4gAcAAMIhAAcAAgMxAuABAPAfWRj8APDjZgj+CIIgiEIAFMCJosgB3/d93/d9z/M8z/M8x3Ecx3EcwzAMwzAMQRAEQRAEFCBJkkYBBkI4AAAAAAB40/zx0i9JvwQA" } };
     
-    },{}],6:[function(require,module,exports){
+    },{}],7:[function(require,module,exports){
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var canvas_1 = require("./canvas");
@@ -136,7 +280,7 @@
     }
     exports.imageToContext = imageToContext;
     
-    },{"./canvas":2}],7:[function(require,module,exports){
+    },{"./canvas":2}],8:[function(require,module,exports){
     "use strict";
     function __export(m) {
         for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
@@ -148,12 +292,14 @@
     __export(require("./texture"));
     __export(require("./font"));
     __export(require("./color"));
+    __export(require("./draw"));
+    __export(require("./text"));
     var ascii_small_font_1 = require("./fonts/ascii-small-font");
     exports.fonts = {
         'ascii-small': ascii_small_font_1.default,
     };
     
-    },{"./canvas":2,"./color":3,"./font":4,"./fonts/ascii-small-font":5,"./image":6,"./sprite":8,"./texture":9}],8:[function(require,module,exports){
+    },{"./canvas":2,"./color":3,"./draw":4,"./font":5,"./fonts/ascii-small-font":6,"./image":7,"./sprite":9,"./text":10,"./texture":11}],9:[function(require,module,exports){
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var canvas_1 = require("./canvas");
@@ -187,7 +333,306 @@
     }
     exports.drawSprite = drawSprite;
     
-    },{"./canvas":2}],9:[function(require,module,exports){
+    },{"./canvas":2}],10:[function(require,module,exports){
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var sprite_1 = require("./sprite");
+    var canvas_1 = require("./canvas");
+    var color_1 = require("./color");
+    var FALLBACK_CODEPOINT = '?'.codePointAt(0);
+    ;
+    function computeLineWidth(font, line) {
+        var width = 0;
+        for (var _i = 0, line_1 = line; _i < line_1.length; _i++) {
+            var char = line_1[_i];
+            var code = char.codePointAt(0);
+            var fontchar = font.characters.get(code);
+            if (fontchar) {
+                width += fontchar.spacing;
+            }
+        }
+        return width;
+    }
+    exports.computeLineWidth = computeLineWidth;
+    function makeGlyph(position, sprite, color, offset, hidden, styles) {
+        if (color === void 0) { color = 0xFFFFFF; }
+        if (offset === void 0) { offset = sprite_1.makeVector2(0, 0); }
+        if (hidden === void 0) { hidden = true; }
+        if (styles === void 0) { styles = new Map(); }
+        return { position: position, sprite: sprite, color: color, offset: offset, hidden: hidden, styles: styles };
+    }
+    exports.makeGlyph = makeGlyph;
+    // TODO: the only reason this is a class rn is it needs those two canvases for
+    // blending properly...
+    var PageRenderer = /** @class */ (function () {
+        function PageRenderer(width, height) {
+            this.width = width;
+            this.height = height;
+            this.pageContext = canvas_1.createContext2D(width, height);
+            this.bufferContext = canvas_1.createContext2D(width, height);
+            this.pageImage = this.pageContext.canvas;
+        }
+        /**
+         * Render a page of glyphs to the pageImage, offset by (px, py).
+         * @param page glyphs to be rendered.
+         * @param px horizontal offset in pixels.
+         * @param py verticle offest in pixels.
+         */
+        PageRenderer.prototype.renderPage = function (page, px, py) {
+            this.pageContext.clearRect(0, 0, this.width, this.height);
+            this.bufferContext.clearRect(0, 0, this.width, this.height);
+            for (var _i = 0, page_1 = page; _i < page_1.length; _i++) {
+                var glyph = page_1[_i];
+                if (glyph.hidden)
+                    continue;
+                // padding + position + offset
+                var dx = px + glyph.position.x + glyph.offset.x;
+                var dy = py + glyph.position.y + glyph.offset.y;
+                // draw tint layer
+                this.pageContext.fillStyle = color_1.num2hex(glyph.color);
+                this.pageContext.fillRect(dx, dy, glyph.sprite.rect.w, glyph.sprite.rect.h);
+                // draw text layer
+                sprite_1.drawSprite(this.bufferContext, glyph.sprite, dx, dy);
+            }
+            // draw text layer in tint color
+            this.pageContext.globalCompositeOperation = 'destination-in';
+            this.pageContext.drawImage(this.bufferContext.canvas, 0, 0);
+            this.pageContext.globalCompositeOperation = 'source-over';
+        };
+        return PageRenderer;
+    }());
+    exports.PageRenderer = PageRenderer;
+    function scriptToPages(script, context, styleHandler) {
+        if (styleHandler === void 0) { styleHandler = exports.defaultStyleHandler; }
+        var tokens = tokeniseScript(script);
+        var commands = tokensToCommands(tokens);
+        return commandsToPages(commands, context, styleHandler);
+    }
+    exports.scriptToPages = scriptToPages;
+    function find(array, start, step, predicate) {
+        for (var i = start; 0 <= i && i < array.length; i += step) {
+            if (predicate(array[i], i)) {
+                return [array[i], i];
+            }
+        }
+    }
+    /**
+     * Segment the given array into contiguous runs of elements that are not
+     * considered breakable.
+     */
+    function filterToSpans(array, breakable) {
+        var spans = [];
+        var buffer = [];
+        array.forEach(function (element, index) {
+            if (!breakable(element, index)) {
+                buffer.push(element);
+            }
+            else if (buffer.length > 0) {
+                spans.push(buffer);
+                buffer = [];
+            }
+        });
+        if (buffer.length > 0) {
+            spans.push(buffer);
+        }
+        return spans;
+    }
+    exports.filterToSpans = filterToSpans;
+    exports.defaultStyleHandler = function (styles, style) {
+        if (style.substr(0, 1) === "+") {
+            styles.set(style.substring(1), true);
+        }
+        else if (style.substr(0, 1) === "-") {
+            styles.delete(style.substring(1));
+        }
+        else if (style.includes("=")) {
+            var _a = style.split(/\s*=\s*/), key = _a[0], val = _a[1];
+            styles.set(key, val);
+        }
+    };
+    function commandsToPages(commands, layout, styleHandler) {
+        if (styleHandler === void 0) { styleHandler = exports.defaultStyleHandler; }
+        commandsBreakLongSpans(commands, layout);
+        var styles = new Map();
+        var pages = [];
+        var page = [];
+        var currLine = 0;
+        function newPage() {
+            pages.push(page);
+            page = [];
+            currLine = 0;
+        }
+        function endPage() {
+            do {
+                endLine();
+            } while (currLine % layout.lineCount !== 0);
+        }
+        function endLine() {
+            currLine += 1;
+            if (currLine === layout.lineCount)
+                newPage();
+        }
+        function doBreak(target) {
+            if (target === "line")
+                endLine();
+            else if (target === "page")
+                endPage();
+        }
+        function findNextBreakIndex() {
+            var width = 0;
+            for (var i = 0; i < commands.length; ++i) {
+                var command = commands[i];
+                if (command.type === "break")
+                    return i;
+                if (command.type === "style")
+                    continue;
+                width += computeLineWidth(layout.font, command.char);
+                // if we overshot, look backward for last possible breakable glyph
+                if (width > layout.lineWidth) {
+                    var result = find(commands, i, -1, function (command) { return command.type === "glyph"
+                        && command.breakable; });
+                    if (result)
+                        return result[1];
+                }
+            }
+            ;
+        }
+        function addGlyph(command, offset) {
+            var codepoint = command.char.codePointAt(0);
+            var char = layout.font.characters.get(codepoint)
+                || layout.font.characters.get(FALLBACK_CODEPOINT);
+            var pos = sprite_1.makeVector2(offset, currLine * (layout.font.lineHeight + 4));
+            var glyph = makeGlyph(pos, char.sprite);
+            glyph.styles = new Map(styles.entries());
+            page.push(glyph);
+            return char.spacing;
+        }
+        function generateGlyphLine(commands) {
+            var offset = 0;
+            for (var _i = 0, commands_1 = commands; _i < commands_1.length; _i++) {
+                var command = commands_1[_i];
+                if (command.type === "glyph") {
+                    offset += addGlyph(command, offset);
+                }
+                else if (command.type === "style") {
+                    styleHandler(styles, command.style);
+                }
+            }
+        }
+        var index;
+        while ((index = findNextBreakIndex()) !== undefined) {
+            generateGlyphLine(commands.slice(0, index));
+            commands = commands.slice(index);
+            var command = commands[0];
+            if (command.type === "break") {
+                doBreak(command.target);
+                commands.shift();
+            }
+            else {
+                if (command.type === "glyph" && command.char === " ") {
+                    commands.shift();
+                }
+                endLine();
+            }
+        }
+        generateGlyphLine(commands);
+        endPage();
+        return pages;
+    }
+    exports.commandsToPages = commandsToPages;
+    /**
+     * Find spans of unbreakable commands that are too long to fit within a page
+     * width and amend those spans so that breaking permitted in all positions.
+     */
+    function commandsBreakLongSpans(commands, context) {
+        var canBreak = function (command) { return command.type === "break"
+            || (command.type === "glyph" && command.breakable); };
+        var spans = filterToSpans(commands, canBreak);
+        for (var _i = 0, spans_1 = spans; _i < spans_1.length; _i++) {
+            var span = spans_1[_i];
+            var glyphs = span.filter(function (command) { return command.type === "glyph"; });
+            var charWidths = glyphs.map(function (command) { return computeLineWidth(context.font, command.char); });
+            var spanWidth = charWidths.reduce(function (x, y) { return x + y; }, 0);
+            if (spanWidth > context.lineWidth) {
+                for (var _a = 0, glyphs_1 = glyphs; _a < glyphs_1.length; _a++) {
+                    var command = glyphs_1[_a];
+                    command.breakable = true;
+                }
+            }
+        }
+    }
+    exports.commandsBreakLongSpans = commandsBreakLongSpans;
+    function tokensToCommands(tokens) {
+        var commands = [];
+        function handleToken(_a) {
+            var type = _a[0], buffer = _a[1];
+            if (type === "text")
+                handleText(buffer);
+            else if (type === "markup")
+                handleMarkup(buffer);
+        }
+        function handleText(buffer) {
+            for (var _i = 0, buffer_1 = buffer; _i < buffer_1.length; _i++) {
+                var char = buffer_1[_i];
+                var breakable = char === " ";
+                commands.push({ type: "glyph", char: char, breakable: breakable });
+            }
+        }
+        function handleMarkup(buffer) {
+            if (buffer === "ep")
+                commands.push({ type: "break", target: "page" });
+            else if (buffer === "el")
+                commands.push({ type: "break", target: "line" });
+            else
+                commands.push({ type: "style", style: buffer });
+        }
+        tokens.forEach(handleToken);
+        return commands;
+    }
+    exports.tokensToCommands = tokensToCommands;
+    function tokeniseScript(script) {
+        var tokens = [];
+        var buffer = "";
+        var braceDepth = 0;
+        function openBrace() {
+            if (braceDepth === 0)
+                flushBuffer();
+            braceDepth += 1;
+        }
+        function closeBrace() {
+            if (braceDepth === 1)
+                flushBuffer();
+            braceDepth -= 1;
+        }
+        function newLine() {
+            flushBuffer();
+            tokens.push(["markup", "el"]);
+        }
+        function flushBuffer() {
+            if (buffer.length === 0)
+                return;
+            var type = braceDepth > 0 ? "markup" : "text";
+            tokens.push([type, buffer]);
+            buffer = "";
+        }
+        var actions = {
+            "{": openBrace,
+            "}": closeBrace,
+            "\n": newLine,
+        };
+        for (var _i = 0, script_1 = script; _i < script_1.length; _i++) {
+            var char = script_1[_i];
+            if (char in actions)
+                actions[char]();
+            else
+                buffer += char;
+        }
+        flushBuffer();
+        return tokens;
+    }
+    exports.tokeniseScript = tokeniseScript;
+    
+    },{"./canvas":2,"./color":3,"./sprite":9}],11:[function(require,module,exports){
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var base64_1 = require("./base64");
@@ -293,6 +738,6 @@
     }
     exports.decodeAsciiTexture = decodeAsciiTexture;
     
-    },{"./base64":1,"./canvas":2}]},{},[7])(7)
+    },{"./base64":1,"./canvas":2}]},{},[8])(8)
     });
     
