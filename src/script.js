@@ -62,8 +62,6 @@ function recolored(tile, color) {
 
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
-const chatLines = [];
-
 const avatarTiles = new Map();
 
 function recolor(context) {
@@ -209,7 +207,6 @@ async function load() {
     const youtube = document.querySelector('#youtube');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    let chatLines = [];
     const chatPages = [];
 
     chatName.value = localStorage.getItem('name') || "";
@@ -352,7 +349,6 @@ async function load() {
     }
 
     function logChat(text) {
-        chatLines.push(text + '{-rbw}{-shk}{-wvy}{-clr}');
         chatPages.push(blitsy.scriptToPages(text, layout)[0]);
     }
 
@@ -504,16 +500,6 @@ async function load() {
     function redraw() {
         dialog.clearRect(0, 0, 256, 256);
         pageRenderer.pageContext.clearRect(0, 0, 256, 256);
-
-        const page = blitsy.scriptToPages(chatLines.join('\n'), layout).slice(-1)[0];
-        animatePage(page);
-
-        let offset = 0;
-
-        if (page.length > 0) {
-            const ymax = page.slice(-1)[0].position.y;
-            offset = Math.max(0, ymax - 228);
-        }
 
         chatContext.fillStyle = 'rgb(0, 0, 0)';
         chatContext.fillRect(0, 0, 512, 512);
