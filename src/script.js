@@ -153,8 +153,15 @@ class WebSocketMessaging {
         const message = JSON.parse(event.data);
         const handler = this.handlers.get(message.type);
         
-        if (handler) handler(message);
-        else console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+        if (handler) {
+            try {
+                handler(message);
+            } catch (e) {
+                console.log('EXCEPTION HANDLING MESSAGE', message, e);
+            }
+        } else {
+            console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+        }
     }
 
     onOpen(event) {
@@ -393,7 +400,7 @@ async function load() {
 
         if (typing && event.key === 'Enter') {
             const line = chatInput.value;
-            const slash = line.match(/\/(\w+)(.*)/);
+            const slash = line.match(/^\/(\w+)(.*)/);
 
             if (slash) {
                 const command = chatCommands.get(slash[1]);

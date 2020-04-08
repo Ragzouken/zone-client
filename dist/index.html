@@ -2,12 +2,11 @@
 <html>
   <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=600">
     <title>zone</title>
     <style>* { box-sizing: border-box; }
 
 html, body {
-    height: 100%;
-    width: 100%;
     margin: 0;
     padding: 0;
 }
@@ -18,39 +17,36 @@ html {
 }
 
 input {
-    font-size: 1.2rem;
+    font-size: 16px;
     font-family: monospace;
     color: white;
 
     background: black;
     border: solid black 3px;
     width: 512px;
-
-    margin-left: 512px;
 }
 
 input:focus {
     border-bottom: solid red 3px;
 }
 
-body {
+html {
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
-
-    width: 1024px;
-    height: 100vh;
     align-items: center;
     justify-content: center;
-
-    position: absolute;
-
-    left: calc((100vw - 1024px) / 2);
 }
 
-#main {
-    position: relative;
+body {
+    margin: auto;
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+
+    max-width: 1024px;
 }
 
 #chat-canvas {
@@ -59,9 +55,16 @@ body {
     height: 512px;
 }
 
-#chat {
+#chat-inputs {
+    width: 512px;
+
     display: flex;
     flex-direction: column;
+    justify-content: right;
+}
+
+#chat-inputs > * {
+    width: 512px;
 }
 
 #user-list {
@@ -78,13 +81,9 @@ body {
 }
 
 #scene {
+    position: relative;
     width: 512px;
     height: 512px;
-
-    /*position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);*/
 }
 
 #insert {
@@ -92,7 +91,6 @@ body {
     left: 32px; top: 32px;
     width: 448px; height: 252px;
     pointer-events: none;
-    /*z-index: -1;*/
 }
 
 #noyoutube {
@@ -1014,8 +1012,15 @@ class WebSocketMessaging {
         const message = JSON.parse(event.data);
         const handler = this.handlers.get(message.type);
         
-        if (handler) handler(message);
-        else console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+        if (handler) {
+            try {
+                handler(message);
+            } catch (e) {
+                console.log('EXCEPTION HANDLING MESSAGE', message, e);
+            }
+        } else {
+            console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+        }
     }
 
     onOpen(event) {
@@ -1254,7 +1259,7 @@ async function load() {
 
         if (typing && event.key === 'Enter') {
             const line = chatInput.value;
-            const slash = line.match(/\/(\w+)(.*)/);
+            const slash = line.match(/^\/(\w+)(.*)/);
 
             if (slash) {
                 const command = chatCommands.get(slash[1]);
@@ -1495,17 +1500,15 @@ function hslToRgb(h, s, l) {
     </script>
   </head>
   <body>
-    <div id="main">
-      <div id="scene">
-        <div id="insert">
-          <div id="noyoutube"> <span>youtube has not loaded</span></div>
-          <div id="youtube"></div>
-        </div>
-        <canvas id="scene-canvas" width="512" height="512"></canvas>
+    <div id="scene">
+      <div id="insert">
+        <div id="noyoutube"> <span>youtube has not loaded</span></div>
+        <div id="youtube"></div>
       </div>
-      <canvas id="chat-canvas" width="512" height="512"></canvas>
+      <canvas id="scene-canvas" width="512" height="512"></canvas>
     </div>
-    <div id="chat">
+    <canvas id="chat-canvas" width="512" height="512"></canvas>
+    <div id="chat-inputs">
       <input id="chat-name" type="text" placeholder="your name...">
       <input id="chat-input" type="text" placeholder="chat message...">
     </div>

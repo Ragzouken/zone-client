@@ -1,8 +1,6 @@
 * { box-sizing: border-box; }
 
 html, body {
-    height: 100%;
-    width: 100%;
     margin: 0;
     padding: 0;
 }
@@ -13,39 +11,36 @@ html {
 }
 
 input {
-    font-size: 1.2rem;
+    font-size: 16px;
     font-family: monospace;
     color: white;
 
     background: black;
     border: solid black 3px;
     width: 512px;
-
-    margin-left: 512px;
 }
 
 input:focus {
     border-bottom: solid red 3px;
 }
 
-body {
+html {
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
-
-    width: 1024px;
-    height: 100vh;
     align-items: center;
     justify-content: center;
-
-    position: absolute;
-
-    left: calc((100vw - 1024px) / 2);
 }
 
-#main {
-    position: relative;
+body {
+    margin: auto;
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+
+    max-width: 1024px;
 }
 
 #chat-canvas {
@@ -54,9 +49,16 @@ body {
     height: 512px;
 }
 
-#chat {
+#chat-inputs {
+    width: 512px;
+
     display: flex;
     flex-direction: column;
+    justify-content: right;
+}
+
+#chat-inputs > * {
+    width: 512px;
 }
 
 #user-list {
@@ -73,13 +75,9 @@ body {
 }
 
 #scene {
+    position: relative;
     width: 512px;
     height: 512px;
-
-    /*position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);*/
 }
 
 #insert {
@@ -87,7 +85,6 @@ body {
     left: 32px; top: 32px;
     width: 448px; height: 252px;
     pointer-events: none;
-    /*z-index: -1;*/
 }
 
 #noyoutube {

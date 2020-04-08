@@ -2,6 +2,7 @@ doctype html
 html
     head
         meta(charset="UTF-8")
+        meta(name="viewport", content="width=600")
         title zone
         style
             include style.css
@@ -10,14 +11,13 @@ html
         script
             include script.js
     body
-        #main
-            #scene
-                #insert
-                    #noyoutube 
-                        span youtube has not loaded
-                    #youtube
-                canvas#scene-canvas(width=512, height=512)
-            canvas#chat-canvas(width=512, height=512)
-        #chat
+        #scene
+            #insert
+                #noyoutube 
+                    span youtube has not loaded
+                #youtube
+            canvas#scene-canvas(width=512, height=512)
+        canvas#chat-canvas(width=512, height=512)
+        #chat-inputs
             input#chat-name(type="text", placeholder="your name...")
             input#chat-input(type="text", placeholder="chat message...")
