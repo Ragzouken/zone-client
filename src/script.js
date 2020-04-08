@@ -184,6 +184,23 @@ function secondsToTime(seconds) {
     return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+function getPageHeight(page, font) {
+    if (page.length === 0)
+        return 0;
+
+    let ymin = page[0].position.y;
+    let ymax = ymin;
+
+    page.forEach(char => {
+        ymin = Math.min(ymin, char.position.y);
+        ymax = Math.max(ymax, char.position.y);
+    });
+
+    ymax += font.lineHeight + 4;
+
+    return ymax - ymin;
+}
+
 async function load() {
     setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
 
@@ -193,6 +210,7 @@ async function load() {
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
     let chatLines = [];
+    const chatPages = [];
 
     chatName.value = localStorage.getItem('name') || "";
 
@@ -335,6 +353,7 @@ async function load() {
 
     function logChat(text) {
         chatLines.push(text + '{-rbw}{-shk}{-wvy}{-clr}');
+        chatPages.push(blitsy.scriptToPages(text, layout)[0]);
     }
 
     function move(dx, dy) {
@@ -347,7 +366,10 @@ async function load() {
     }
 
     function listUsers() {
-        logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}{-clr}`);
+        if (usernames.size === 0)
+            logChat('{clr=#FF00FF}! no other users');
+        else
+            logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}{-clr}`);
     }
 
     function listHelp() {
@@ -456,14 +478,9 @@ async function load() {
 
     const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new blitsy.PageRenderer(256, 256);
+    document.body.appendChild(pageRenderer.pageContext.canvas);
 
-    const ylimit = 256;
-
-    function redraw() {
-        dialog.clearRect(0, 0, 256, 256);
-        pageRenderer.pageContext.clearRect(0, 0, 256, 256);
-
-        const page = blitsy.scriptToPages(chatLines.join('\n'), layout).slice(-1)[0];
+    function animatePage(page) {
         page.forEach((glyph, i) => {
             glyph.hidden = false;
             if (glyph.styles.has("r")) glyph.hidden = false;
@@ -482,6 +499,14 @@ async function load() {
                 glyph.color = blitsy.rgb2num(r, g, b);
             }
         });
+    }
+
+    function redraw() {
+        dialog.clearRect(0, 0, 256, 256);
+        pageRenderer.pageContext.clearRect(0, 0, 256, 256);
+
+        const page = blitsy.scriptToPages(chatLines.join('\n'), layout).slice(-1)[0];
+        animatePage(page);
 
         let offset = 0;
 
@@ -490,11 +515,21 @@ async function load() {
             offset = Math.max(0, ymax - 228);
         }
 
-        pageRenderer.renderPage(page, 8, 8 - offset);
-
         chatContext.fillStyle = 'rgb(0, 0, 0)';
         chatContext.fillRect(0, 0, 512, 512);
-        chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
+
+        let bottom = 256 - 4;
+        for (let i = chatPages.length - 1; i >= 0 && bottom >= 0; --i) {
+            const page = chatPages[i];
+            const height = getPageHeight(page, font);
+
+            const y = bottom - height;
+
+            animatePage(page);
+            pageRenderer.renderPage(page, 8, y);
+            chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
+            bottom = y;
+        }
 
         youtube.hidden = player.getPlayerState() !== 1;        
 

@@ -14,10 +14,18 @@ html {
 
 input {
     font-size: 1.2rem;
+    font-family: monospace;
+    color: white;
+
+    background: black;
+    border: solid black 3px;
+    width: 512px;
+
+    margin-left: 512px;
 }
 
 input:focus {
-    border: solid red 3px;
+    border-bottom: solid red 3px;
 }
 
 body {
@@ -25,6 +33,10 @@ body {
     flex-direction: column;
 
     width: 1024px;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+
     position: absolute;
 
     left: calc((100vw - 1024px) / 2);
@@ -43,8 +55,6 @@ body {
 }
 
 #chat {
-    background: white;
-
     display: flex;
     flex-direction: column;
 }
