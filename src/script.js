@@ -317,7 +317,7 @@ async function load() {
 
     player.addEventListener('onError', () => messaging.send('error', { videoId: currentVideo.videoId }));
 
-    const zone = urlparams.get('zone') || 'http://zone-server.glitch.me/zone';
+    const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging.connect('ws://' + zone);
 
     chatName.addEventListener('change', () => {
@@ -369,8 +369,16 @@ async function load() {
     }
 
     function listHelp() {
-        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /help{-clr}');
+        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /help, /users{-clr}');
     }
+
+    const chatCommands = new Map();
+    chatCommands.set('search',  args => messaging.send('search',  { query: args    }));
+    chatCommands.set('youtube', args => messaging.send('youtube', { videoId: args  })),
+    chatCommands.set('skip',    args => messaging.send('skip',    { password: args })),
+    chatCommands.set('cat',     args => messaging.send('avatar',  { data: catData  })),
+    chatCommands.set('users',   args => listUsers()),
+    chatCommands.set('help',    args => listHelp()),
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
@@ -384,25 +392,21 @@ async function load() {
         }
 
         if (typing && event.key === 'Enter') {
-            const command = chatInput.value;
-            if (command.startsWith('/search'))
-                messaging.send('search', {query: command.slice(7).trim()});
-            else if (command.startsWith('/youtube '))
-                messaging.send('youtube', {videoId: command.slice(9).trim()});
-            else if (command.startsWith('/skip'))
-                messaging.send('skip', {password: command.slice(5).trim()})
-            else if (command.startsWith('/emotes'))
-                messaging.send('emotes', { emotes: command.slice(7).trim().split(' ')});
-            else if (command.startsWith('/emote'))
-                messaging.send('emotes', { emotes: command.slice(6).trim().split(' ')});
-            else if (command.startsWith('/cat'))
-                messaging.send('avatar', {data: catData});
-            else if (command.startsWith('/users'))
-                listUsers();
-            else if (command.startsWith('/help'))
-                listHelp();
-            else
-                messaging.send('chat', {text: command});
+            const line = chatInput.value;
+            const slash = line.match(/\/(\w+)(.*)/);
+
+            if (slash) {
+                const command = chatCommands.get(slash[1]);
+                if (command) {
+                    command(slash[2].trim());
+                } else {
+                    logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
+                    listHelp();
+                }
+            } else {
+                messaging.send('chat', {text: line});
+            }
+
             chatInput.value = "";
         } 
 
@@ -470,7 +474,6 @@ async function load() {
     room.fillStyle = 'rgb(0, 0, 0)';
     room.globalAlpha = .75;
     room.fillRect(0, 0, 512, 512);
-    //room.clearRect(32, 32, 448, 252);
 
     const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new blitsy.PageRenderer(256, 256);
