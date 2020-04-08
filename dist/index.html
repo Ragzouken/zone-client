@@ -1335,7 +1335,6 @@ async function load() {
 
     const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new blitsy.PageRenderer(256, 256);
-    document.body.appendChild(pageRenderer.pageContext.canvas);
 
     function animatePage(page) {
         page.forEach((glyph, i) => {
