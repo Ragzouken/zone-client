@@ -377,11 +377,11 @@ async function load() {
         if (usernames.size === 0)
             logChat('{clr=#FF00FF}! no other users');
         else
-            logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}{-clr}`);
+            logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}`);
     }
 
     function listHelp() {
-        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /help, /users{-clr}');
+        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /result search result number, /lucky search terms, /help, /users');
     }
 
     function playFromSearchResult(args) {
