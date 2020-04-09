@@ -313,9 +313,14 @@ async function load() {
         usernames.set(message.userId, message.name);
     });
 
+    let lastSearchResults = undefined;
+
     messaging.setHandler('search', message => {
         const { query, results } = message;
-        messaging.send('youtube', {videoId: results[0].videoId});
+
+        lastSearchResults = results;
+        const lines = results.slice(0, 5).map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration)})`);
+        logChat('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
 
     setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
@@ -379,13 +384,26 @@ async function load() {
         logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /help, /users{-clr}');
     }
 
+    function playFromSearchResult(args) {
+        const index = parseInt(args) - 1;
+
+        if (isNaN(index))
+            logChat(`{clr=#FF00FF}! did not understand '${args}' as a number`);
+        else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
+            logChat(`{clr=#FF00FF}! there is no #${index + 1} search result`);
+        else
+            messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
+    }
+
     const chatCommands = new Map();
     chatCommands.set('search',  args => messaging.send('search',  { query: args    }));
-    chatCommands.set('youtube', args => messaging.send('youtube', { videoId: args  })),
-    chatCommands.set('skip',    args => messaging.send('skip',    { password: args })),
-    chatCommands.set('cat',     args => messaging.send('avatar',  { data: catData  })),
-    chatCommands.set('users',   args => listUsers()),
-    chatCommands.set('help',    args => listHelp()),
+    chatCommands.set('youtube', args => messaging.send('youtube', { videoId: args  }));
+    chatCommands.set('skip',    args => messaging.send('skip',    { password: args }));
+    chatCommands.set('cat',     args => messaging.send('avatar',  { data: catData  }));
+    chatCommands.set('users',   args => listUsers());
+    chatCommands.set('help',    args => listHelp());
+    chatCommands.set('result',  playFromSearchResult);
+    chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
