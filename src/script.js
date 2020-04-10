@@ -81,8 +81,6 @@ tag.src = "https://www.youtube.com/player_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-let autoplayed = false;
-
 // Replace the 'ytplayer' element with an <iframe> and
 // YouTube player after the API code downloads.
 var player;
@@ -101,13 +99,6 @@ function onYouTubePlayerAPIReady() {
         }
     });
 }
-
-document.addEventListener('click', () => {
-    if (!autoplayed) {
-        autoplayed = true;
-        if (player) player.playVideo();
-    }
-});
 
 class WebSocketMessaging {
     constructor() {
@@ -206,17 +197,18 @@ function getPageHeight(page, font) {
     return ymax - ymin;
 }
 
+let messaging;
+
 async function load() {
-    setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
-
-    const urlparams = new URLSearchParams(window.location.search);
-
+    //setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
     const youtube = document.querySelector('#youtube');
+    const joinName = document.querySelector('#join-name');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    const chatPages = [];
+    let chatPages = [];
 
     chatName.value = localStorage.getItem('name') || "";
+    joinName.value = chatName.value;
 
     let queue = [];
     let currentVideo;
@@ -232,7 +224,7 @@ async function load() {
 
     let showQueue = false;
 
-    const messaging = new WebSocketMessaging();
+    messaging = new WebSocketMessaging();
     messaging.setHandler('heartbeat', () => {});
     messaging.setHandler('assign', message => {
         logChat('{clr=#00FF00}*** connected ***{-clr}');
@@ -259,6 +251,7 @@ async function load() {
         }
         const { videoId, title, duration, time } = message;
         player.loadVideoById(videoId, time / 1000);
+        player.playVideo();
         logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)}){-clr}`);
 
         currentVideo = message;
@@ -329,9 +322,6 @@ async function load() {
 
     player.addEventListener('onError', () => messaging.send('error', { videoId: currentVideo.videoId }));
 
-    const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
-    messaging.connect('ws://' + zone);
-
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
         if (userId)
@@ -362,6 +352,7 @@ async function load() {
 
     function logChat(text) {
         chatPages.push(blitsy.scriptToPages(text, layout)[0]);
+        chatPages = chatPages.slice(-32);
     }
 
     function move(dx, dy) {
@@ -616,6 +607,23 @@ async function load() {
     }
 
     redraw();
+
+    const entrySplash = document.querySelector('#entry-splash');
+    const entryButton = document.querySelector('#entry-button');
+    entryButton.disabled = false;
+    entryButton.addEventListener('click', () => {
+        entrySplash.hidden = true;
+        enter();
+    });
+}
+
+function enter() {
+    const joinName = document.querySelector('#join-name').value;
+    document.querySelector('#chat-name').value = joinName;
+    localStorage.setItem('name', joinName);
+    const urlparams = new URLSearchParams(window.location.search);
+    const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
+    messaging.connect('ws://' + zone);
 }
 
 // source : https://gist.github.com/mjackson/5311256

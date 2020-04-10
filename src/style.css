@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 
 html, body {
@@ -10,7 +11,7 @@ html {
     font-size: 1.2rem;
 }
 
-input {
+#chat-inputs > input {
     font-size: 16px;
     font-family: monospace;
     color: white;
@@ -20,7 +21,7 @@ input {
     width: 512px;
 }
 
-input:focus {
+#chat-inputs > input:focus {
     border-bottom: solid red 3px;
 }
 
@@ -104,4 +105,35 @@ body {
     position: absolute;
     width: 100%; height: 100%;
     mix-blend-mode: screen;
+}
+
+#entry-splash {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+
+    background: black;
+    color: white;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#entry-panel {
+    text-align: center;
+}
+
+#join-name {
+    font-size: 120%;
+    border-radius: 3px;
+    padding: .4em .8em;
+}
+
+#entry-button {
+    font-size: 120%;
+    border-radius: 3px;
+    padding: .4em .8em;
 }
