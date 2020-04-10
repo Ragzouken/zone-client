@@ -1286,6 +1286,7 @@ async function load() {
     chatCommands.set('help',    args => listHelp());
     chatCommands.set('result',  playFromSearchResult);
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
+    chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
