@@ -13,16 +13,17 @@ html
     body
         #scene
             #insert
+                img#zone-logo(src="zone-logo.png")
                 #noyoutube 
                     span youtube has not loaded
                 #youtube
             canvas#scene-canvas(width=512, height=512)
         canvas#chat-canvas(width=512, height=512)
         #chat-inputs
-            input#chat-name(type="text", placeholder="your name...")
-            input#chat-input(type="text", placeholder="chat message...")
+            input#chat-name(type="text", placeholder="your name...", maxlength="16")
+            input#chat-input(type="text", placeholder="chat message...", maxlength="160")
         #entry-splash
             #entry-panel
                 h1 you are about to enter a zone
-                input#join-name(type="text", placeholder="your name...")
+                input#join-name(type="text", placeholder="your name...", maxlength="16")
                 button#entry-button(disabled) enter

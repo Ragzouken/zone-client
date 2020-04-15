@@ -113,6 +113,14 @@ body {
     mix-blend-mode: screen;
 }
 
+#zone-logo {
+    position: absolute;
+    width: 100%; height: 100%;
+    opacity: 35%;
+    mix-blend-mode: screen;
+    image-rendering: pixelated;
+}
+
 #entry-splash {
     position: absolute;
     left: 0;
@@ -991,6 +999,18 @@ function onYouTubePlayerAPIReady() {
     });
 }
 
+function fakedownToTag(text, fd, tag) {
+    const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
+    return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
+}
+
+function parseFakedown(text) {
+    text = fakedownToTag(text, '##', 'shk');
+    text = fakedownToTag(text, '~~', 'wvy');
+    text = fakedownToTag(text, '==', 'rbw');
+    return text;
+}
+
 class WebSocketMessaging {
     constructor() {
         this.websocket = undefined;
@@ -1024,7 +1044,11 @@ class WebSocketMessaging {
 
     send(type, message) {
         message.type = type;
-        this.websocket.send(JSON.stringify(message));
+        try {
+            this.websocket.send(JSON.stringify(message));
+        } catch (e) {
+            console.log("couldn't send", message, e);
+        }
     }
 
     setHandler(type, handler) {
@@ -1055,7 +1079,7 @@ class WebSocketMessaging {
         console.log(`closed: ${event.code}, ${event.reason}`, event);
 
         if (event.code !== 1000) {
-            await sleep(500);
+            await sleep(100);
             this.reconnect();
         }
     }
@@ -1247,10 +1271,14 @@ async function load() {
     }
 
     function move(dx, dy) {
-        const avatar = avatars.get(userId);
-        if (!avatar) return;
-        avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
-        avatar.position[1] = clamp(0, 15, avatar.position[1] + dy);
+        let avatar = avatars.get(userId); 
+        
+        if (avatar) {
+            avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
+            avatar.position[1] = clamp(0, 15, avatar.position[1] + dy);
+        } else {
+            avatar = { userId, position: [randomInt(0, 15), 15], emotes: [] };
+        }
 
         messaging.send('move', { position: avatar.position });
     }
@@ -1312,7 +1340,7 @@ async function load() {
                     listHelp();
                 }
             } else {
-                messaging.send('chat', {text: line});
+                messaging.send('chat', {text: parseFakedown(line)});
             }
 
             chatInput.value = "";
@@ -1407,7 +1435,11 @@ async function load() {
         });
     }
 
+    const zoneLogo = document.querySelector('#zone-logo');
     function redraw() {
+        youtube.hidden = player.getPlayerState() !== 1;
+        zoneLogo.hidden = player.getPlayerState() === 1;
+
         dialog.clearRect(0, 0, 256, 256);
         pageRenderer.pageContext.clearRect(0, 0, 256, 256);
 
@@ -1425,20 +1457,10 @@ async function load() {
             pageRenderer.renderPage(page, 8, y);
             chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
             bottom = y;
-        }
-
-        youtube.hidden = player.getPlayerState() !== 1;        
+        }        
 
         context.clearRect(0, 0, 512, 512);
         context.drawImage(room.canvas, 0, 0);
-    
-        function renderText(text, x, y) {
-            Array.from(text).forEach((char, i) => {
-                const character = font.characters.get(char.codePointAt(0)) || font.characters.get('?'.codePointAt(0));
-                blitsy.drawSprite(dialog, character.sprite, x, y);
-                x += character.spacing;
-            });
-        }
 
         avatars.forEach((avatar, userId) => {
             const { position } = avatar;
@@ -1473,27 +1495,34 @@ async function load() {
             context.drawImage(image.canvas, x, y, 32, 32);
         });
 
-        const cols = 36;
-        function line(title, seconds, row) {
+        const lines = [];
+        const cols = 40;
+        function line(title, seconds) {
             const time = secondsToTime(seconds);
             const limit = cols - time.length;
             const cut = title.length < limit ? title.padEnd(limit, " ") : title.slice(0, limit - 4) + "... ";
-
-            renderText(cut + time, 16+4, 16+2 + font.lineHeight * row);
+            lines.push(cut + time);
         }
 
         const remaining = Math.round(player.getDuration() - player.getCurrentTime());
-        if (currentVideo)
-            line(currentVideo.title, remaining, 0);
+        if (currentVideo && remaining > 0)
+            line(currentVideo.title, remaining);
+
+        let total = remaining;
 
         if (showQueue) {
             queue.forEach((video, i) => {
-                line(video.title, video.duration, i + 1);
+                line(video.title, video.duration);
+                total += video.duration;
             });
-            renderText('*** END ***', 16+4, 16+2 + font.lineHeight * (queue.length + 1));
+            line('*** END ***', total);
+            lines[lines.length - 1] = '{clr=#FF00FF}' + lines[lines.length - 1];
         }
 
-        context.drawImage(dialog.canvas, 0, 0, 512, 512);
+        const queuePage = blitsy.scriptToPages(lines.join('\n'), layout)[0];
+        animatePage(queuePage);
+        pageRenderer.renderPage(queuePage, 0, 0);
+        context.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
 
         window.requestAnimationFrame(redraw);
     }
@@ -1560,7 +1589,7 @@ function hslToRgb(h, s, l) {
   </head>
   <body>
     <div id="scene">
-      <div id="insert">
+      <div id="insert"><img id="zone-logo" src="zone-logo.png">
         <div id="noyoutube"> <span>youtube has not loaded</span></div>
         <div id="youtube"></div>
       </div>
@@ -1568,13 +1597,13 @@ function hslToRgb(h, s, l) {
     </div>
     <canvas id="chat-canvas" width="512" height="512"></canvas>
     <div id="chat-inputs">
-      <input id="chat-name" type="text" placeholder="your name...">
-      <input id="chat-input" type="text" placeholder="chat message...">
+      <input id="chat-name" type="text" placeholder="your name..." maxlength="16">
+      <input id="chat-input" type="text" placeholder="chat message..." maxlength="160">
     </div>
     <div id="entry-splash">
       <div id="entry-panel">
         <h1>you are about to enter a zone</h1>
-        <input id="join-name" type="text" placeholder="your name...">
+        <input id="join-name" type="text" placeholder="your name..." maxlength="16">
         <button id="entry-button" disabled>enter</button>
       </div>
     </div>
