@@ -297,8 +297,12 @@ async function load() {
     });
     messaging.setHandler('avatar', message => {
         const texture = {_type: "texture", format: "M1", width: 8, height: 8, data: message.data};
-        const context = blitsy.decodeTexture(texture);
-        avatarTiles.set(message.userId, context);
+        try {
+            const context = blitsy.decodeTexture(texture);
+            avatarTiles.set(message.userId, context);
+        } catch (e) {
+            console.log('fucked up avatar', getUsername(message.userId));
+        }
     });
     messaging.setHandler('emotes', message => {
         const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
@@ -416,6 +420,7 @@ async function load() {
     chatCommands.set('result',  playFromSearchResult);
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
+    chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
@@ -440,7 +445,7 @@ async function load() {
                     logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
                     listHelp();
                 }
-            } else {
+            } else if (line.length > 0) {
                 messaging.send('chat', {text: parseFakedown(line)});
             }
 
