@@ -395,8 +395,19 @@ async function load() {
             logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}`);
     }
 
+    const help = [
+        "press tab: toggle typing/controls",
+        "press q: toggle queue",
+        "press 1/2/3: toggle emotes",
+        "/youtube videoId",
+        "/search query terms",
+        "/lucky search terms",
+        "/avatar binary as base64",
+        "/users",
+    ].join('\n');
+
     function listHelp() {
-        logChat('{clr=#FFFF00}? press tab: toggle typing/controls, press q: toggle queue, press 1/2/3: toggle emotes, /youtube videoId, /search query terms, /result search result number, /lucky search terms, /help, /users');
+        logChat('{clr=#FFFF00}? /help\n' + help);
     }
 
     function playFromSearchResult(args) {
