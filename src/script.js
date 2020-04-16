@@ -432,7 +432,7 @@ async function load() {
     const chatCommands = new Map();
     chatCommands.set('search',  args => messaging.send('search',  { query: args    }));
     chatCommands.set('youtube', args => messaging.send('youtube', { videoId: args  }));
-    chatCommands.set('skip',    args => messaging.send('skip',    { password: args }));
+    chatCommands.set('skip',    args => messaging.send('skip',    { password: args, videoId: currentVideo.videoId }));
     chatCommands.set('cat',     args => messaging.send('avatar',  { data: catData  }));
     chatCommands.set('users',   args => listUsers());
     chatCommands.set('help',    args => listHelp());
