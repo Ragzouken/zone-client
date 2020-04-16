@@ -300,6 +300,9 @@ async function load() {
         try {
             const context = blitsy.decodeTexture(texture);
             avatarTiles.set(message.userId, context);
+
+            if (message.userId === userId)
+                localStorage.setItem('avatar', message.data);
         } catch (e) {
             console.log('fucked up avatar', getUsername(message.userId));
         }
@@ -376,7 +379,8 @@ async function load() {
     }
 
     function move(dx, dy) {
-        let avatar = avatars.get(userId); 
+        let avatar = avatars.get(userId);
+        const spawning = !avatar;
         
         if (avatar) {
             avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
@@ -386,6 +390,10 @@ async function load() {
         }
 
         messaging.send('move', { position: avatar.position });
+
+        const data = localStorage.getItem('avatar');
+        if (spawning && data)
+            messaging.send('avatar', { data });
     }
 
     function listUsers() {
