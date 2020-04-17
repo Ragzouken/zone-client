@@ -415,6 +415,7 @@ async function load() {
         "/lucky search terms",
         "/avatar binary as base64",
         "/users",
+        "/notify",
     ].join('\n');
 
     function listHelp() {
