@@ -1115,7 +1115,14 @@ function getPageHeight(page, font) {
 
 let messaging;
 
+function setVolume(volume) {
+    player.setVolume(volume);
+    localStorage.setItem('volume', volume.toString());
+}
+
 async function load() {
+    setVolume(parseInt(localStorage.getItem('volume'), 10) || 100);
+
     //setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
     const youtube = document.querySelector('#youtube');
     const joinName = document.querySelector('#join-name');
@@ -1133,6 +1140,7 @@ async function load() {
 
     let userId;
     const usernames = new Map();
+
 
     function getUsername(userId) {
         return usernames.get(userId) || userId;
@@ -1329,6 +1337,7 @@ async function load() {
         "/avatar binary as base64",
         "/users",
         "/notify",
+        "/volume 100",
     ].join('\n');
 
     function listHelp() {
@@ -1357,7 +1366,7 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
-    chatCommands.set('volume',  args => player.setVolume(parseInt(args.trim(), 10)));
+    chatCommands.set('volume',  args => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
@@ -1569,7 +1578,11 @@ async function load() {
         const queuePage = blitsy.scriptToPages(lines.join('\n'), layout)[0];
         animatePage(queuePage);
         pageRenderer.renderPage(queuePage, 0, 0);
-        context.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
+
+        const height = getPageHeight(queuePage, font);
+        chatContext.fillStyle = 'rgb(0, 0, 0)';
+        chatContext.fillRect(0, 0, 512, height * 2 + 16);
+        chatContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
 
         window.requestAnimationFrame(redraw);
     }

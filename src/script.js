@@ -679,7 +679,11 @@ async function load() {
         const queuePage = blitsy.scriptToPages(lines.join('\n'), layout)[0];
         animatePage(queuePage);
         pageRenderer.renderPage(queuePage, 0, 0);
-        context.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
+
+        const height = getPageHeight(queuePage, font);
+        chatContext.fillStyle = 'rgb(0, 0, 0)';
+        chatContext.fillRect(0, 0, 512, height * 2 + 16);
+        chatContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
 
         window.requestAnimationFrame(redraw);
     }
