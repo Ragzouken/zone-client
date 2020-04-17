@@ -748,6 +748,6 @@ function hslToRgb(h, s, l) {
 
 function notify(title, body, tag) {
     if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        new Notification(title, { body, tag, renotify: true });
+        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
     }
 }
