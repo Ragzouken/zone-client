@@ -267,6 +267,7 @@ async function load() {
             return;
         }
         const { videoId, title, duration, time } = message;
+        retries = 0;
         player.loadVideoById(videoId, time / 1000);
         player.playVideo();
         logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)}){-clr}`);
@@ -344,7 +345,16 @@ async function load() {
 
     window.onbeforeunload = () => messaging.disconnect();
 
-    player.addEventListener('onError', () => messaging.send('error', { videoId: currentVideo.videoId }));
+    let retries = 0;
+    player.addEventListener('onError', () => {
+        if (retries >= 3) {
+            messaging.send('error', { videoId: currentVideo.videoId });
+        } else {
+            youtube.loadVideoById(currentVideo.videoId, currentVideo.time / 1000);
+            youtube.playVideo();
+            retries += 1;
+        }
+    });
 
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
