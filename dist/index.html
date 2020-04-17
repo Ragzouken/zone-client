@@ -1328,6 +1328,7 @@ async function load() {
         "/skip",
         "/avatar binary as base64",
         "/users",
+        "/notify",
     ].join('\n');
 
     function listHelp() {
@@ -1356,6 +1357,7 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
+    chatCommands.set('volume',  args => player.setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
@@ -1632,7 +1634,7 @@ function hslToRgb(h, s, l) {
 
 function notify(title, body, tag) {
     if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        const notification = new Notification(title, { body, tag, renotify: true });
+        new Notification(title, { body, tag, renotify: true });
     }
 }
 

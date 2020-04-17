@@ -430,6 +430,7 @@ async function load() {
         "/avatar binary as base64",
         "/users",
         "/notify",
+        "/volume 100",
     ].join('\n');
 
     function listHelp() {
@@ -458,6 +459,7 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
+    chatCommands.set('volume',  args => player.setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
