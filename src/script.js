@@ -317,6 +317,9 @@ async function load() {
     messaging.setHandler('chat', message => {
         const name = getUsername(message.userId);
         logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
+        if (message.userId !== userId) {
+            notify(name, message.text, 'chat');
+        }
     });
     messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
     messaging.setHandler('name', message => {
@@ -426,6 +429,7 @@ async function load() {
         "/skip",
         "/avatar binary as base64",
         "/users",
+        "/notify",
     ].join('\n');
 
     function listHelp() {
@@ -454,6 +458,10 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
+    chatCommands.set('notify', async () => {
+        const permission = await Notification.requestPermission();
+        logChat(`{clr=#FF00FF}! notifications ${permission}`);
+    });
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
@@ -723,3 +731,9 @@ function hslToRgb(h, s, l) {
   
     return [ r * 255, g * 255, b * 255 ];
   }
+
+function notify(title, body, tag) {
+    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
+        new Notification(title, { body, tag, renotify: true });
+    }
+}
