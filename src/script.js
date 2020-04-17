@@ -349,10 +349,12 @@ async function load() {
     player.addEventListener('onError', () => {
         if (retries >= 3) {
             messaging.send('error', { videoId: currentVideo.videoId });
+            console.log('youtube error after retries :(');
         } else {
-            youtube.loadVideoById(currentVideo.videoId, currentVideo.time / 1000);
-            youtube.playVideo();
+            player.loadVideoById(currentVideo.videoId, currentVideo.time / 1000);
+            player.playVideo();
             retries += 1;
+            console.log('youtube retry', retries);
         }
     });
 
