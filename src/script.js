@@ -216,7 +216,14 @@ function getPageHeight(page, font) {
 
 let messaging;
 
+function setVolume(volume) {
+    player.setVolume(volume);
+    localStorage.setItem('volume', volume.toString());
+}
+
 async function load() {
+    setVolume(parseInt(localStorage.getItem('volume'), 10) || 100);
+
     //setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
     const youtube = document.querySelector('#youtube');
     const joinName = document.querySelector('#join-name');
@@ -234,6 +241,7 @@ async function load() {
 
     let userId;
     const usernames = new Map();
+
 
     function getUsername(userId) {
         return usernames.get(userId) || userId;
@@ -459,7 +467,7 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
-    chatCommands.set('volume',  args => player.setVolume(parseInt(args.trim(), 10)));
+    chatCommands.set('volume',  args => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
