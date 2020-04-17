@@ -410,6 +410,7 @@ async function load() {
         "/youtube videoId",
         "/search query terms",
         "/lucky search terms",
+        "/skip",
         "/avatar binary as base64",
         "/users",
     ].join('\n');
