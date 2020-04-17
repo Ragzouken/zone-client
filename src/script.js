@@ -91,6 +91,7 @@ function onYouTubePlayerAPIReady() {
         playerVars: {
             controls: '0',
             iv_load_policy: '3',
+            disablekb: '1',
         },
         events: {
             onReady: () => { load(); },
