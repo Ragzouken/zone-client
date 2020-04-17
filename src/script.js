@@ -316,7 +316,7 @@ async function load() {
         const name = getUsername(message.userId);
         logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
         if (message.userId !== userId) {
-            notify(`${name}: ${message.text}`);
+            notify(name, message.text, 'chat');
         }
     });
     messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
@@ -443,6 +443,10 @@ async function load() {
     chatCommands.set('lucky',   args => messaging.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
+    chatCommands.set('notify', async () => {
+        const permission = await Notification.requestPermission();
+        logChat(`{clr=#FF00FF}! notifications ${permission}`);
+    });
 
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
@@ -673,7 +677,6 @@ function enter() {
     const urlparams = new URLSearchParams(window.location.search);
     const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging.connect('ws://' + zone);
-    Notification.requestPermission();
 }
 
 // source : https://gist.github.com/mjackson/5311256
@@ -714,8 +717,8 @@ function hslToRgb(h, s, l) {
     return [ r * 255, g * 255, b * 255 ];
   }
 
-function notify(message) {
-    if ("Notification" in window && Notification.permission === "granted" && ! document.hasFocus()) {
-        new Notification(message);
+function notify(title, body, tag) {
+    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
+        new Notification(title, { body, tag, renotify: true });
     }
 }
