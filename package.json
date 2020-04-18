@@ -1,0 +1,37 @@
+{
+  "name": "zone-client",
+  "version": "1.0.0",
+  "description": "a client for zones",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && pug --pretty src/index.pug -o dist",
+    "prestart": "npm run build",
+    "start": "light-server-pug -o -s dist -w './src/** # npm run build'",
+    "test": "jest --config jestconfig.json",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "tslint -p tsconfig.json",
+    "publish": "npm run build && neocities upload -d zone ./dist/*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ragzouken/zone-client.git"
+  },
+  "keywords": [
+    "zone"
+  ],
+  "author": "mark wonnacott",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Ragzouken/zone-client/issues"
+  },
+  "homepage": "https://github.com/Ragzouken/zone-client#readme",
+  "devDependencies": {
+    "@types/jest": "^25.2.1",
+    "jest": "^25.3.0",
+    "prettier": "^2.0.4",
+    "ts-jest": "^25.4.0",
+    "tslint": "^6.1.1",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.8.3"
+  }
+}
