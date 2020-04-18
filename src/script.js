@@ -439,6 +439,7 @@ async function load() {
         "/users",
         "/notify",
         "/volume 100",
+        "/resync",
     ].join('\n');
 
     function listHelp() {
@@ -468,6 +469,7 @@ async function load() {
     chatCommands.set('reboot',  args => messaging.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging.send('avatar',  { data: args }));
     chatCommands.set('volume',  args => setVolume(parseInt(args.trim(), 10)));
+    chatCommands.set('resync', () => messaging.send('resync', {}));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
