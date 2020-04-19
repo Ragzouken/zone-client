@@ -1,6 +1,10 @@
+declare global { interface Window { onYouTubePlayerAPIReady: () => void } };
+
 import * as blitsy from 'blitsy';
 import { num2hex, withPixels, YoutubeVideo, hex2rgb, rgb2num } from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
+
+console.log('test');
 
 type UserId = string;
 
@@ -90,7 +94,7 @@ firstScriptTag.parentNode!.insertBefore(tag, firstScriptTag);
 var player: any;
 declare const YT: any;
 
-function onYouTubePlayerAPIReady() {
+window.onYouTubePlayerAPIReady = () => {
     player = new YT.Player('youtube', {
         width: '448',
         height: '252',
@@ -449,7 +453,7 @@ async function load() {
     });
 
     document.addEventListener('keydown', event => {
-        const typing = document.activeElement?.tagName === "INPUT";
+        const typing = document.activeElement!.tagName === "INPUT";
 
         if (!typing && event.key === 'Tab') {
             chatInput.focus();

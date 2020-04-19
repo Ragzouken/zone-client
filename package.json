@@ -4,7 +4,11 @@
   "description": "a client for zones",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && pug --pretty src/index.pug -o dist",
+    "build-ts": "tsc",
+    "build-bundle": "browserify lib/script.js -o dist/script.js -s zone",
+    "build-pug": "pug --pretty src/index.pug -o dist",
+    "build": "npm run build-ts && npm run build-bundle && npm run build-pug",
+
     "prestart": "npm run build",
     "start": "light-server-pug -o -s dist -w './src/** # npm run build'",
     "test": "jest --config jestconfig.json",
@@ -27,6 +31,7 @@
   "homepage": "https://github.com/Ragzouken/zone-client#readme",
   "devDependencies": {
     "@types/jest": "^25.2.1",
+    "browserify-shim": "^3.8.14",
     "jest": "^25.3.0",
     "prettier": "^2.0.4",
     "ts-jest": "^25.4.0",
