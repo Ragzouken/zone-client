@@ -4,11 +4,9 @@
   "description": "a client for zones",
   "main": "index.js",
   "scripts": {
-    "build-ts": "tsc",
-    "build-bundle": "browserify lib/script.js -o dist/script.js -s zone",
+    "build-script": "browserify src/main.ts -p [ tsify --noImplicitAny ] -o dist/script.js -s zone",
     "build-pug": "pug --pretty src/index.pug -o dist",
-    "build": "npm run build-ts && npm run build-bundle && npm run build-pug",
-
+    "build": "npm run build-script && npm run build-pug",
     "prestart": "npm run build",
     "start": "light-server-pug -o -s dist -w './src/** # npm run build'",
     "test": "jest --config jestconfig.json",
@@ -35,6 +33,7 @@
     "jest": "^25.3.0",
     "prettier": "^2.0.4",
     "ts-jest": "^25.4.0",
+    "tsify": "^4.0.1",
     "tslint": "^6.1.1",
     "tslint-config-prettier": "^1.18.0",
     "typescript": "^3.8.3"
