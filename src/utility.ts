@@ -9,6 +9,24 @@ export type YoutubeVideo = {
     time?: number;
 };
 
+export const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const clamp = (min: number, max: number, value: number) => Math.max(min, Math.min(max, value));
+
+export function fakedownToTag(text: string, fd: string, tag: string) {
+    const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
+    return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
+}
+
+const pad = (number: number) => number.toString().length >= 2 ? number.toString() : "0" + number.toString(); 
+export function secondsToTime(seconds: number) {
+    const s = seconds % 60;
+    const m = Math.floor(seconds / 60) % 60;
+    const h = Math.floor(seconds / 3600);
+
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
 export function recolor(context: CanvasRenderingContext2D) {
     withPixels(context, pixels => {
         for (let i = 0; i < pixels.length; ++i)

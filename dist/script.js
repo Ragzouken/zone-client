@@ -300,15 +300,13 @@ const blitsy = require("blitsy");
 const utility_1 = require("./utility");
 const text_1 = require("./text");
 const youtube_1 = require("./youtube");
+const messaging_1 = require("./messaging");
 let player;
 async function start() {
     player = await youtube_1.loadYoutube('youtube', 448, 252);
     await load();
 }
 start();
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const clamp = (min, max, value) => Math.max(min, Math.min(max, value));
 const avatarImage = blitsy.decodeAsciiTexture(`
 ___XX___
 ___XX___
@@ -349,97 +347,21 @@ function recolored(tile, color) {
     recolorBuffer.globalCompositeOperation = 'source-over';
     return recolorBuffer;
 }
+function notify(title, body, tag) {
+    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
+        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
+    }
+}
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
 const avatarTiles = new Map();
 utility_1.recolor(floorTile);
 utility_1.recolor(brickTile);
-function fakedownToTag(text, fd, tag) {
-    const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
-    return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
-}
 function parseFakedown(text) {
-    text = fakedownToTag(text, '##', 'shk');
-    text = fakedownToTag(text, '~~', 'wvy');
-    text = fakedownToTag(text, '==', 'rbw');
+    text = utility_1.fakedownToTag(text, '##', 'shk');
+    text = utility_1.fakedownToTag(text, '~~', 'wvy');
+    text = utility_1.fakedownToTag(text, '==', 'rbw');
     return text;
-}
-class WebSocketMessaging {
-    constructor() {
-        this.websocket = undefined;
-        this.handlers = new Map();
-    }
-    connect(address) {
-        this.disconnect();
-        this.websocket = new WebSocket(address);
-        this.websocket.onopen = event => this.onOpen(event);
-        this.websocket.onclose = event => this.onClose(event);
-        this.websocket.onmessage = event => this.onMessage(event);
-    }
-    reconnect() {
-        if (!this.websocket)
-            return;
-        console.log("reconnecting");
-        this.connect(this.websocket.url);
-    }
-    disconnect() {
-        if (!this.websocket)
-            return;
-        //this.websocket.onclose = undefined;
-        this.websocket.close(1000);
-        this.websocket = undefined;
-    }
-    async wait() {
-        while (this.websocket && this.websocket.readyState === WebSocket.CONNECTING)
-            await sleep(10);
-    }
-    send(type, message) {
-        message.type = type;
-        try {
-            this.websocket.send(JSON.stringify(message));
-        }
-        catch (e) {
-            console.log("couldn't send", message, e);
-        }
-    }
-    setHandler(type, handler) {
-        this.handlers.set(type, handler);
-    }
-    onMessage(event) {
-        const message = JSON.parse(event.data);
-        const handler = this.handlers.get(message.type);
-        if (handler) {
-            try {
-                handler(message);
-            }
-            catch (e) {
-                console.log('EXCEPTION HANDLING MESSAGE', message, e);
-            }
-        }
-        else {
-            console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
-        }
-    }
-    onOpen(event) {
-        if (!this.websocket)
-            return;
-        console.log('open:', event);
-        console.log(this.websocket.readyState);
-    }
-    async onClose(event) {
-        console.log(`closed: ${event.code}, ${event.reason}`, event);
-        if (event.code > 1001) {
-            await sleep(100);
-            this.reconnect();
-        }
-    }
-}
-const pad = (number) => number.toString().length >= 2 ? number.toString() : "0" + number.toString();
-function secondsToTime(seconds) {
-    const s = seconds % 60;
-    const m = Math.floor(seconds / 60) % 60;
-    const h = Math.floor(seconds / 3600);
-    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 let messaging;
 function setVolume(volume) {
@@ -465,7 +387,7 @@ async function load() {
         return usernames.get(userId) || userId;
     }
     let showQueue = false;
-    messaging = new WebSocketMessaging();
+    messaging = new messaging_1.WebSocketMessaging();
     messaging.setHandler('heartbeat', () => { });
     messaging.setHandler('assign', message => {
         logChat('{clr=#00FF00}*** connected ***{-clr}');
@@ -481,7 +403,7 @@ async function load() {
         console.log(message);
         if (message.videos.length === 1) {
             const video = message.videos[0];
-            logChat(`{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
+            logChat(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
         }
         queue.push(...message.videos);
     });
@@ -494,7 +416,7 @@ async function load() {
         retries = 0;
         player.loadVideoById(videoId, time / 1000);
         player.playVideo();
-        logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)}){-clr}`);
+        logChat(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)}){-clr}`);
         currentVideo = message;
         queue = queue.filter(video => video.videoId !== videoId);
     });
@@ -559,7 +481,7 @@ async function load() {
     messaging.setHandler('search', message => {
         const { results } = message;
         lastSearchResults = results;
-        const lines = results.slice(0, 5).map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration)})`);
+        const lines = results.slice(0, 5).map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
         logChat('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
     setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
@@ -592,11 +514,11 @@ async function load() {
         let avatar = avatars.get(userId);
         const spawning = !avatar;
         if (avatar) {
-            avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
-            avatar.position[1] = clamp(0, 15, avatar.position[1] + dy);
+            avatar.position[0] = utility_1.clamp(0, 15, avatar.position[0] + dx);
+            avatar.position[1] = utility_1.clamp(0, 15, avatar.position[1] + dy);
         }
         else {
-            avatar = { userId, position: [randomInt(0, 15), 15], emotes: [] };
+            avatar = { userId, position: [utility_1.randomInt(0, 15), 15], emotes: [] };
         }
         messaging.send('move', { position: avatar.position });
         const data = localStorage.getItem('avatar');
@@ -758,7 +680,7 @@ async function load() {
                 glyph.color = utility_1.rgb2num(...rgb);
             }
             if (glyph.styles.has("shk"))
-                glyph.offset = blitsy.makeVector2(randomInt(-1, 1), randomInt(-1, 1));
+                glyph.offset = blitsy.makeVector2(utility_1.randomInt(-1, 1), utility_1.randomInt(-1, 1));
             if (glyph.styles.has("wvy"))
                 glyph.offset.y = (Math.sin(i + performance.now() * 5 / 1000) * 3) | 0;
             if (glyph.styles.has("rbw")) {
@@ -793,8 +715,8 @@ async function load() {
             let dx = 0;
             let dy = 0;
             if (avatar.emotes.includes('shk')) {
-                dx += randomInt(-8, 8);
-                dy += randomInt(-8, 8);
+                dx += utility_1.randomInt(-8, 8);
+                dy += utility_1.randomInt(-8, 8);
             }
             if (avatar.emotes.includes('wvy')) {
                 dy += Math.sin((performance.now() / 250) - (position[0] / 2)) * 4;
@@ -813,7 +735,7 @@ async function load() {
         const lines = [];
         const cols = 40;
         function line(title, seconds) {
-            const time = secondsToTime(seconds);
+            const time = utility_1.secondsToTime(seconds);
             const limit = cols - time.length;
             const cut = title.length < limit ? title.padEnd(limit, " ") : title.slice(0, limit - 4) + "... ";
             lines.push(cut + time);
@@ -856,13 +778,84 @@ function enter() {
     const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging.connect('ws://' + zone);
 }
-function notify(title, body, tag) {
-    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
+
+},{"./messaging":11,"./text":12,"./utility":13,"./youtube":14,"blitsy":7}],11:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const utility_1 = require("./utility");
+class WebSocketMessaging {
+    constructor() {
+        this.websocket = undefined;
+        this.handlers = new Map();
+    }
+    connect(address) {
+        this.disconnect();
+        this.websocket = new WebSocket(address);
+        this.websocket.onopen = event => this.onOpen(event);
+        this.websocket.onclose = event => this.onClose(event);
+        this.websocket.onmessage = event => this.onMessage(event);
+    }
+    reconnect() {
+        if (!this.websocket)
+            return;
+        console.log("reconnecting");
+        this.connect(this.websocket.url);
+    }
+    disconnect() {
+        if (!this.websocket)
+            return;
+        //this.websocket.onclose = undefined;
+        this.websocket.close(1000);
+        this.websocket = undefined;
+    }
+    async wait() {
+        while (this.websocket && this.websocket.readyState === WebSocket.CONNECTING)
+            await utility_1.sleep(10);
+    }
+    send(type, message) {
+        message.type = type;
+        try {
+            this.websocket.send(JSON.stringify(message));
+        }
+        catch (e) {
+            console.log("couldn't send", message, e);
+        }
+    }
+    setHandler(type, handler) {
+        this.handlers.set(type, handler);
+    }
+    onMessage(event) {
+        const message = JSON.parse(event.data);
+        const handler = this.handlers.get(message.type);
+        if (handler) {
+            try {
+                handler(message);
+            }
+            catch (e) {
+                console.log('EXCEPTION HANDLING MESSAGE', message, e);
+            }
+        }
+        else {
+            console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
+        }
+    }
+    onOpen(event) {
+        if (!this.websocket)
+            return;
+        console.log('open:', event);
+        console.log(this.websocket.readyState);
+    }
+    async onClose(event) {
+        console.log(`closed: ${event.code}, ${event.reason}`, event);
+        if (event.code > 1001) {
+            await utility_1.sleep(100);
+            this.reconnect();
+        }
     }
 }
+exports.WebSocketMessaging = WebSocketMessaging;
 
-},{"./text":11,"./utility":12,"./youtube":13,"blitsy":7}],11:[function(require,module,exports){
+},{"./utility":13}],12:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
@@ -1157,10 +1150,26 @@ function getPageHeight(page, font) {
 }
 exports.getPageHeight = getPageHeight;
 
-},{"./utility":12,"blitsy":7}],12:[function(require,module,exports){
+},{"./utility":13,"blitsy":7}],13:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
+exports.randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+exports.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+exports.clamp = (min, max, value) => Math.max(min, Math.min(max, value));
+function fakedownToTag(text, fd, tag) {
+    const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
+    return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
+}
+exports.fakedownToTag = fakedownToTag;
+const pad = (number) => number.toString().length >= 2 ? number.toString() : "0" + number.toString();
+function secondsToTime(seconds) {
+    const s = seconds % 60;
+    const m = Math.floor(seconds / 60) % 60;
+    const h = Math.floor(seconds / 3600);
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+exports.secondsToTime = secondsToTime;
 function recolor(context) {
     withPixels(context, pixels => {
         for (let i = 0; i < pixels.length; ++i)
@@ -1252,7 +1261,7 @@ function hex2rgb(color) {
 }
 exports.hex2rgb = hex2rgb;
 
-},{"blitsy":7}],13:[function(require,module,exports){
+},{"blitsy":7}],14:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 ;

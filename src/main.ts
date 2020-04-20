@@ -1,7 +1,8 @@
 import * as blitsy from 'blitsy';
-import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb } from './utility';
+import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb, clamp, randomInt, secondsToTime, fakedownToTag } from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube } from './youtube';
+import { WebSocketMessaging } from './messaging';
 
 let player: any;
 async function start() {
@@ -11,10 +12,6 @@ async function start() {
 start();
 
 type UserId = string;
-
-const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const clamp = (min: number, max: number, value: number) => Math.max(min, Math.min(max, value));
 
 const avatarImage = blitsy.decodeAsciiTexture(`
 ___XX___
@@ -61,6 +58,12 @@ function recolored(tile: CanvasRenderingContext2D, color: number) {
     return recolorBuffer;
 }
 
+function notify(title: string, body: string, tag: string) {
+    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
+        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
+    }
+}
+
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
 const avatarTiles = new Map();
@@ -68,100 +71,11 @@ const avatarTiles = new Map();
 recolor(floorTile);
 recolor(brickTile);
 
-function fakedownToTag(text: string, fd: string, tag: string) {
-    const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
-    return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
-}
-
 function parseFakedown(text: string) {
     text = fakedownToTag(text, '##', 'shk');
     text = fakedownToTag(text, '~~', 'wvy');
     text = fakedownToTag(text, '==', 'rbw');
     return text;
-}
-
-class WebSocketMessaging {
-    public websocket: WebSocket | undefined = undefined;
-    private handlers = new Map<string, (message: any) => void>();
-
-    connect(address: string) {
-        this.disconnect();
-        this.websocket = new WebSocket(address);
-        this.websocket.onopen = event => this.onOpen(event);
-        this.websocket.onclose = event => this.onClose(event);
-        this.websocket.onmessage = event => this.onMessage(event);
-    }
-
-    reconnect() {
-        if (!this.websocket) return;
-        console.log("reconnecting");
-        this.connect(this.websocket.url);
-    }
-
-    disconnect() {
-        if (!this.websocket) return;
-        //this.websocket.onclose = undefined;
-        this.websocket.close(1000);
-        this.websocket = undefined;
-    }
-
-    async wait() {
-        while (this.websocket && this.websocket.readyState === WebSocket.CONNECTING)
-            await sleep(10);
-    }
-
-    send(type: string, message: any) {
-        message.type = type;
-        try {
-            this.websocket!.send(JSON.stringify(message));
-        } catch (e) {
-            console.log("couldn't send", message, e);
-        }
-    }
-
-    setHandler(type: string, handler: (message: any) => void) {
-        this.handlers.set(type, handler);
-    }
-
-    onMessage(event: MessageEvent) {
-        const message = JSON.parse(event.data);
-        const handler = this.handlers.get(message.type);
-        
-        if (handler) {
-            try {
-                handler(message);
-            } catch (e) {
-                console.log('EXCEPTION HANDLING MESSAGE', message, e);
-            }
-        } else {
-            console.log(`NO HANDLER FOR MESSAGE TYPE ${message.type}`);
-        }
-    }
-
-    onOpen(event: Event) {
-        if (!this.websocket) return;
-        console.log('open:', event);
-        console.log(this.websocket.readyState);
-    }
-
-    async onClose(event: CloseEvent) {
-        console.log(`closed: ${event.code}, ${event.reason}`, event);
-
-        if (event.code > 1001) {
-            await sleep(100);
-            this.reconnect();
-        }
-    }
-}
-
-const pad = (number: number) => number.toString().length >= 2 ? number.toString() : "0" + number.toString(); 
-
-function secondsToTime(seconds: number) {
-    const s = seconds % 60;
-    const m = Math.floor(seconds / 60) % 60;
-    const h = Math.floor(seconds / 3600);
-
-    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
 let messaging: WebSocketMessaging | undefined;
@@ -644,10 +558,4 @@ function enter() {
     const urlparams = new URLSearchParams(window.location.search);
     const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging!.connect('ws://' + zone);
-}
-
-function notify(title: string, body: string, tag: string) {
-    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
-    }
 }
