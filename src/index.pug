@@ -1,25 +1,25 @@
 doctype html
-html(lang="en-gb")
+html
     head
+        meta(charset="UTF-8")
+        meta(name="viewport", content="width=600")
         title zone
-        meta(charset="utf-8")
-        style
-            include style.css
-        script
-            include script.js
-    body(onload="load()")
-        #zone
-            #youtube
-            #background
-            canvas.player-avatar
-        #customisation
-            input(type="text" id="player-name" value="asdf")
-            #avatar-editor
-                - let n = 0;
-                while n < 64
-                    input(type="checkbox" checked=(n % 2 === 0))
-                    - n++
-        #chat
-            input#server-input(type="text", placeholder="server address...")
-            #chat-log
-            input#chat-input(type="text", placeholder="chat message...")
+        link(rel="stylesheet" href="style.css")
+        script(src="script.js")
+    body
+        #scene
+            #insert
+                img#zone-logo(src="zone-logo.png")
+                #noyoutube 
+                    span youtube has not loaded
+                #youtube
+            canvas#scene-canvas(width=512, height=512)
+        canvas#chat-canvas(width=512, height=512)
+        #chat-inputs
+            input#chat-name(type="text", placeholder="your name...", maxlength="16")
+            input#chat-input(type="text", placeholder="chat message...", maxlength="160")
+        #entry-splash
+            #entry-panel
+                h1 you are about to enter a zone
+                input#join-name(type="text", placeholder="your name...", maxlength="16")
+                button#entry-button(disabled) enter

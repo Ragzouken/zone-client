@@ -1,196 +1,31 @@
 <!DOCTYPE html>
-<html lang="en-gb">
+<html>
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=600">
     <title>zone</title>
-    <meta charset="utf-8">
-    <style>:root {
-    --game-width: 512px;
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-    height: 100%;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-
-    background-color: #2E2F31;
-    color: #999;
-}
-
-input[type="checkbox"] {
-    margin: 0;
-    float: left;
-}
-
-#avatar-editor {
-    width: 8em;
-}
-
-#chat {
-    margin: auto;
-
-    max-width: 100%;
-    max-height: 100%;
-
-    width: 640px;
-    height: 640px;
-
-    display: flex;
-    flex-direction: column;
-    float: left;
-}
-
-#chat-log {
-    flex: 1;
-}
-
-#customisation {
-    width: var(--game-width);
-    float: left;
-}
-
-#zone {
-    width: var(--game-width);
-    height: var(--game-width);
-    float: left;
-}
-
-    </style>
-    <script>async function load() {
-    const serverInput = document.querySelector('#server-input');
-    const chatInput = document.querySelector('#chat-input');
-    const chatLog = document.querySelector('#chat-log');
-    const chatLines = [];
-
-    let websocket;
-    function connect(address) {
-        websocket = new WebSocket(address);
-        websocket.onopen = event => addChat('... connected ...');
-        websocket.onerror = event => addChat('... failed to connect ...');
-        websocket.onmessage = event => addChat(event.data);
-    }
-
-    function update() {
-        if (!websocket) {
-            serverInput.style = "background: red";
-        } else if (websocket.readyState === WebSocket.OPEN) {
-            serverInput.style = "background: green";
-        } else if (websocket.readyState === WebSocket.CONNECTING) {
-            serverInput.style = "background: yellow";
-        } else {
-            serverInput.style = "background: red";
-        }
-
-        window.requestAnimationFrame(() => update());
-    }
-
-    update();
-
-    function addChat(text) {
-        chatLines.push(text);
-        chatLog.innerText = chatLines.join('\n');
-    }
-    
-    function sendChat(text) {
-        websocket.send(text);
-        addChat('(you) ' + text);
-    }
-
-    serverInput.addEventListener('change', event => {
-        connect(serverInput.value);
-    });
-
-    document.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            sendChat(chatInput.value);
-            chatInput.value = "";
-        }
-    });
-}
-
-    </script>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js"></script>
   </head>
-  <body onload="load()">
-    <div id="zone">
-      <div id="youtube"></div>
-      <div id="background"></div>
-      <canvas class="player-avatar"></canvas>
-    </div>
-    <div id="customisation">
-      <input type="text" id="player-name" value="asdf">
-      <div id="avatar-editor">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
-        <input type="checkbox" checked>
-        <input type="checkbox">
+  <body>
+    <div id="scene">
+      <div id="insert"><img id="zone-logo" src="zone-logo.png">
+        <div id="noyoutube"> <span>youtube has not loaded</span></div>
+        <div id="youtube"></div>
       </div>
+      <canvas id="scene-canvas" width="512" height="512"></canvas>
     </div>
-    <div id="chat">
-      <input id="server-input" type="text" placeholder="server address...">
-      <div id="chat-log"></div>
-      <input id="chat-input" type="text" placeholder="chat message...">
+    <canvas id="chat-canvas" width="512" height="512"></canvas>
+    <div id="chat-inputs">
+      <input id="chat-name" type="text" placeholder="your name..." maxlength="16">
+      <input id="chat-input" type="text" placeholder="chat message..." maxlength="160">
+    </div>
+    <div id="entry-splash">
+      <div id="entry-panel">
+        <h1>you are about to enter a zone</h1>
+        <input id="join-name" type="text" placeholder="your name..." maxlength="16">
+        <button id="entry-button" disabled>enter</button>
+      </div>
     </div>
   </body>
 </html>
