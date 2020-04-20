@@ -296,11 +296,16 @@ exports.decodeAsciiTexture = decodeAsciiTexture;
 },{"./base64":1,"./canvas":2}],10:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-;
 const blitsy = require("blitsy");
 const utility_1 = require("./utility");
 const text_1 = require("./text");
-console.log('test');
+const youtube_1 = require("./youtube");
+let player;
+async function start() {
+    player = await youtube_1.loadYoutube('youtube', 448, 252);
+    await load();
+}
+start();
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const clamp = (min, max, value) => Math.max(min, Math.min(max, value));
@@ -314,17 +319,6 @@ X_XXXX_X
 __X__X__
 __X__X__
 `, "X");
-const catImage = blitsy.decodeAsciiTexture(`
-________
-________
-_X_X___X
-_XXX___X
-_XXX__X_
-_XXXXX__
-__XXXX__
-__X__X__
-`, "X");
-const catData = blitsy.encodeTexture(catImage, 'M1').data;
 const floorTile = blitsy.decodeAsciiTexture(`
 ________
 _X_X_X_X
@@ -358,37 +352,8 @@ function recolored(tile, color) {
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
 const avatarTiles = new Map();
-function recolor(context) {
-    utility_1.withPixels(context, pixels => {
-        for (let i = 0; i < pixels.length; ++i)
-            if (pixels[i] === 0xFFFFFFFF)
-                pixels[i] = blitsy.rgbaToColor({ r: 128, g: 159, b: 255, a: 255 });
-    });
-}
-recolor(floorTile);
-recolor(brickTile);
-var tag = document.createElement('script');
-tag.onerror = () => console.log("youtube error :(");
-tag.src = "https://www.youtube.com/player_api";
-var firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-var player;
-window.onYouTubePlayerAPIReady = () => {
-    player = new YT.Player('youtube', {
-        width: '448',
-        height: '252',
-        playerVars: {
-            controls: '0',
-            iv_load_policy: '3',
-            disablekb: '1',
-        },
-        events: {
-            onReady: () => { load(); },
-            onError: () => console.log("YT ERROR"),
-            onStateChange: (event) => console.log(`YT STATE: ${event.data}`),
-        }
-    });
-};
+utility_1.recolor(floorTile);
+utility_1.recolor(brickTile);
 function fakedownToTag(text, fd, tag) {
     const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
     return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
@@ -677,13 +642,18 @@ async function load() {
         if (currentVideo)
             messaging.send('skip', { password: args, videoId: currentVideo.videoId });
     });
-    chatCommands.set('cat', args => messaging.send('avatar', { data: catData }));
     chatCommands.set('users', args => listUsers());
     chatCommands.set('help', args => listHelp());
     chatCommands.set('result', playFromSearchResult);
     chatCommands.set('lucky', args => messaging.send('search', { query: args, lucky: true }));
     chatCommands.set('reboot', args => messaging.send('reboot', { master_key: args }));
     chatCommands.set('avatar', args => messaging.send('avatar', { data: args }));
+    chatCommands.set('avatar2', args => {
+        const ascii = args.replace(/\s+/g, '\n');
+        const avatar = blitsy.decodeAsciiTexture(ascii, '1');
+        const data = blitsy.encodeTexture(avatar, 'M1').data;
+        messaging.send('avatar', { data });
+    });
     chatCommands.set('volume', args => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('resync', () => messaging.send('resync', {}));
     chatCommands.set('notify', async () => {
@@ -755,7 +725,6 @@ async function load() {
             event.preventDefault();
         }
     });
-    // test canvas over youtube video
     const chatContext = document.querySelector('#chat-canvas').getContext('2d');
     chatContext.imageSmoothingEnabled = false;
     const canvas = document.querySelector('#scene-canvas');
@@ -794,7 +763,7 @@ async function load() {
                 glyph.offset.y = (Math.sin(i + performance.now() * 5 / 1000) * 3) | 0;
             if (glyph.styles.has("rbw")) {
                 const h = Math.abs(Math.sin((performance.now() / 600) - (i / 8)));
-                const [r, g, b] = hslToRgb(h, 1, 0.5);
+                const [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 glyph.color = utility_1.rgb2num(r, g, b);
             }
         });
@@ -836,7 +805,7 @@ async function load() {
             let image = avatarTiles.get(userId) || avatarImage;
             if (avatar.emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin((performance.now() / 600) - (position[0] / 8)));
-                [r, g, b] = hslToRgb(h, 1, 0.5);
+                [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 image = recolored(image, utility_1.rgb2num(r, g, b));
             }
             context.drawImage(image.canvas, x, y, 32, 32);
@@ -887,41 +856,13 @@ function enter() {
     const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging.connect('ws://' + zone);
 }
-// source : https://gist.github.com/mjackson/5311256
-function hue2rgb(p, q, t) {
-    if (t < 0)
-        t += 1;
-    if (t > 1)
-        t -= 1;
-    if (t < 1 / 6)
-        return p + (q - p) * 6 * t;
-    if (t < 1 / 2)
-        return q;
-    if (t < 2 / 3)
-        return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-}
-function hslToRgb(h, s, l) {
-    var r, g, b;
-    if (s == 0) {
-        r = g = b = l; // achromatic
-    }
-    else {
-        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        var p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-    }
-    return [r * 255, g * 255, b * 255];
-}
 function notify(title, body, tag) {
     if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
         new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
     }
 }
 
-},{"./text":11,"./utility":12,"blitsy":7}],11:[function(require,module,exports){
+},{"./text":11,"./utility":12,"./youtube":13,"blitsy":7}],11:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
@@ -1219,6 +1160,45 @@ exports.getPageHeight = getPageHeight;
 },{"./utility":12,"blitsy":7}],12:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const blitsy_1 = require("blitsy");
+function recolor(context) {
+    withPixels(context, pixels => {
+        for (let i = 0; i < pixels.length; ++i)
+            if (pixels[i] === 0xFFFFFFFF)
+                pixels[i] = blitsy_1.rgbaToColor({ r: 128, g: 159, b: 255, a: 255 });
+    });
+}
+exports.recolor = recolor;
+// source : https://gist.github.com/mjackson/5311256
+function hue2rgb(p, q, t) {
+    if (t < 0)
+        t += 1;
+    if (t > 1)
+        t -= 1;
+    if (t < 1 / 6)
+        return p + (q - p) * 6 * t;
+    if (t < 1 / 2)
+        return q;
+    if (t < 2 / 3)
+        return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+}
+exports.hue2rgb = hue2rgb;
+function hslToRgb(h, s, l) {
+    var r, g, b;
+    if (s == 0) {
+        r = g = b = l; // achromatic
+    }
+    else {
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+    return [r * 255, g * 255, b * 255];
+}
+exports.hslToRgb = hslToRgb;
 function withPixels(context, action) {
     const image = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
     action(new Uint32Array(image.data.buffer));
@@ -1271,6 +1251,37 @@ function hex2rgb(color) {
     return [0, 0, 0];
 }
 exports.hex2rgb = hex2rgb;
+
+},{"blitsy":7}],13:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+;
+function loadYoutube(id, width, height) {
+    return new Promise((resolve, reject) => {
+        window.onYouTubePlayerAPIReady = () => {
+            const player = new YT.Player(id, {
+                width: width.toString(),
+                height: height.toString(),
+                playerVars: {
+                    controls: '0',
+                    iv_load_policy: '3',
+                    disablekb: '1',
+                },
+                events: {
+                    onReady: () => resolve(player),
+                    onError: () => reject("youtube error :("),
+                    onStateChange: (event) => console.log(`YT STATE: ${event.data}`),
+                },
+            });
+        };
+        var tag = document.createElement('script');
+        tag.onerror = () => console.log("youtube error :(");
+        tag.src = "https://www.youtube.com/player_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    });
+}
+exports.loadYoutube = loadYoutube;
 
 },{}]},{},[10])(10)
 });

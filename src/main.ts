@@ -1,10 +1,14 @@
-declare global { interface Window { onYouTubePlayerAPIReady: () => void } };
-
 import * as blitsy from 'blitsy';
-import { num2hex, withPixels, YoutubeVideo, hex2rgb, rgb2num } from './utility';
+import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb } from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
+import { loadYoutube } from './youtube';
 
-console.log('test');
+let player: any;
+async function start() {
+    player = await loadYoutube('youtube', 448, 252);
+    await load();
+}
+start();
 
 type UserId = string;
 
@@ -22,19 +26,6 @@ X_XXXX_X
 __X__X__
 __X__X__
 `, "X");
-
-const catImage = blitsy.decodeAsciiTexture(`
-________
-________
-_X_X___X
-_XXX___X
-_XXX__X_
-_XXXXX__
-__XXXX__
-__X__X__
-`, "X");
-
-const catData = blitsy.encodeTexture(catImage, 'M1').data;
 
 const floorTile = blitsy.decodeAsciiTexture(`
 ________
@@ -74,42 +65,8 @@ const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
 const avatarTiles = new Map();
 
-function recolor(context: CanvasRenderingContext2D) {
-    withPixels(context, pixels => {
-        for (let i = 0; i < pixels.length; ++i)
-            if (pixels[i] === 0xFFFFFFFF)
-                pixels[i] = blitsy.rgbaToColor({r: 128, g: 159, b: 255, a: 255});
-    });
-}
-
 recolor(floorTile);
 recolor(brickTile);
-
-var tag = document.createElement('script');
-tag.onerror = () => console.log("youtube error :(");
-tag.src = "https://www.youtube.com/player_api";
-var firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode!.insertBefore(tag, firstScriptTag);
-
-var player: any;
-declare const YT: any;
-
-window.onYouTubePlayerAPIReady = () => {
-    player = new YT.Player('youtube', {
-        width: '448',
-        height: '252',
-        playerVars: {
-            controls: '0',
-            iv_load_policy: '3',
-            disablekb: '1',
-        },
-        events: {
-            onReady: () => { load(); },
-            onError: () => console.log("YT ERROR"),
-            onStateChange: (event: any) => console.log(`YT STATE: ${event.data}`),
-        }
-    });
-}
 
 function fakedownToTag(text: string, fd: string, tag: string) {
     const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
@@ -438,13 +395,18 @@ async function load() {
         if (currentVideo)
             messaging!.send('skip',    { password: args, videoId: currentVideo.videoId })
     });
-    chatCommands.set('cat',     args => messaging!.send('avatar',  { data: catData  }));
     chatCommands.set('users',   args => listUsers());
     chatCommands.set('help',    args => listHelp());
     chatCommands.set('result',  playFromSearchResult);
     chatCommands.set('lucky',   args => messaging!.send('search',  { query: args, lucky: true }));
     chatCommands.set('reboot',  args => messaging!.send('reboot',  { master_key: args }));
     chatCommands.set('avatar',  args => messaging!.send('avatar',  { data: args }));
+    chatCommands.set('avatar2', args => {
+        const ascii = args.replace(/\s+/g, '\n');
+        const avatar = blitsy.decodeAsciiTexture(ascii, '1');
+        const data = blitsy.encodeTexture(avatar, 'M1').data;
+        messaging!.send('avatar', { data });
+    });
     chatCommands.set('volume',  args => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('resync', () => messaging!.send('resync', {}));
     chatCommands.set('notify', async () => {
@@ -519,8 +481,6 @@ async function load() {
             event.preventDefault();
         }
     });
-
-    // test canvas over youtube video
 
     const chatContext = document.querySelector<HTMLCanvasElement>('#chat-canvas')!.getContext('2d')!;
     chatContext.imageSmoothingEnabled = false;
@@ -685,33 +645,6 @@ function enter() {
     const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     messaging!.connect('ws://' + zone);
 }
-
-// source : https://gist.github.com/mjackson/5311256
-function hue2rgb(p: number, q: number, t: number) {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1/6) return p + (q - p) * 6 * t;
-    if (t < 1/2) return q;
-    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-    return p;
-}
-
-function hslToRgb(h: number, s: number, l: number) {
-    var r, g, b;
-  
-    if (s == 0) {
-      r = g = b = l; // achromatic
-    } else {
-      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      var p = 2 * l - q;
-  
-      r = hue2rgb(p, q, h + 1/3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1/3);
-    }
-  
-    return [ r * 255, g * 255, b * 255 ];
-  }
 
 function notify(title: string, body: string, tag: string) {
     if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
