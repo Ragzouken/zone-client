@@ -1,5 +1,17 @@
 import * as blitsy from 'blitsy';
-import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb, clamp, randomInt, secondsToTime, fakedownToTag, getDefault } from './utility';
+import {
+    num2hex,
+    YoutubeVideo,
+    hex2rgb,
+    rgb2num,
+    recolor,
+    hslToRgb,
+    clamp,
+    randomInt,
+    secondsToTime,
+    fakedownToTag,
+    getDefault,
+} from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube } from './youtube';
 import { WebSocketMessaging } from './messaging';
@@ -7,12 +19,12 @@ import { WebSocketMessaging } from './messaging';
 type UserId = string;
 
 type UserState = {
-    userId: UserId,
-    name?: string,
-    position?: number[],
-    avatar?: string,
-    emotes: string[],
-}
+    userId: UserId;
+    name?: string;
+    position?: number[];
+    avatar?: string;
+    emotes: string[];
+};
 
 class ZoneState {
     public users = new Map<UserId, UserState>();
@@ -35,7 +47,8 @@ async function start() {
 }
 start();
 
-const avatarImage = blitsy.decodeAsciiTexture(`
+const avatarImage = blitsy.decodeAsciiTexture(
+    `
 ___XX___
 ___XX___
 ___XX___
@@ -44,9 +57,12 @@ _XXXXXX_
 X_XXXX_X
 __X__X__
 __X__X__
-`, "X");
+`,
+    'X',
+);
 
-const floorTile = blitsy.decodeAsciiTexture(`
+const floorTile = blitsy.decodeAsciiTexture(
+    `
 ________
 _X_X_X_X
 ________
@@ -55,9 +71,12 @@ ________
 X_X_X_X_
 ________
 _____X__
-`, 'X');
+`,
+    'X',
+);
 
-const brickTile = blitsy.decodeAsciiTexture(`
+const brickTile = blitsy.decodeAsciiTexture(
+    `
 ###_####
 ###_####
 ###_####
@@ -66,7 +85,9 @@ ________
 #######_
 #######_
 ________
-`, '#');
+`,
+    '#',
+);
 
 const avatarTiles = new Map<string | undefined, CanvasRenderingContext2D>();
 avatarTiles.set(undefined, avatarImage);
@@ -84,8 +105,8 @@ function recolored(tile: CanvasRenderingContext2D, color: number) {
 }
 
 function notify(title: string, body: string, tag: string) {
-    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
+    if ('Notification' in window && Notification.permission === 'granted' && !document.hasFocus()) {
+        const notification = new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
     }
 }
 
@@ -110,7 +131,7 @@ function setVolume(volume: number) {
 }
 
 async function load() {
-    setVolume(parseInt(localStorage.getItem('volume') || "100", 10));
+    setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
 
     const youtube = document.querySelector('#youtube') as HTMLElement;
     const joinName = document.querySelector('#join-name') as HTMLInputElement;
@@ -118,13 +139,13 @@ async function load() {
     const chatInput = document.querySelector('#chat-input') as HTMLInputElement;
     let chatPages: Page[] = [];
 
-    chatName.value = localStorage.getItem('name') || "";
+    chatName.value = localStorage.getItem('name') || '';
     joinName.value = chatName.value;
 
     let queue: YoutubeVideo[] = [];
     let currentVideo: YoutubeVideo | undefined;
 
-    let userId: UserId;
+    let localUserId: UserId;
 
     function getUsername(userId: UserId) {
         return zone.getUser(userId).name || userId;
@@ -134,26 +155,28 @@ async function load() {
 
     messaging = new WebSocketMessaging();
     messaging.setHandler('heartbeat', () => {});
-    messaging.setHandler('assign', message => {
-        logChat('{clr=#00FF00}*** connected ***{-clr}');
+    messaging.setHandler('assign', (message) => {
+        logChat('{clr=#00FF00}*** connected ***');
         listHelp();
-        userId = message.userId;
+        localUserId = message.userId;
         // send name
-        if (chatName.value.length > 0)
-            messaging!.send('name', { name: chatName.value });
+        if (chatName.value.length > 0) messaging!.send('name', { name: chatName.value });
 
         queue.length = 0;
         zone.reset();
     });
-    messaging.setHandler('queue', message => {
+    messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
             const video = message.videos[0];
-            logChat(`{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
-        
+            logChat(
+                `{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(
+                    video.meta.userId,
+                )}`,
+            );
         }
         queue.push(...message.videos);
     });
-    messaging.setHandler('youtube', message => {
+    messaging.setHandler('youtube', (message) => {
         if (!message.videoId) {
             player.stopVideo();
             return;
@@ -162,32 +185,35 @@ async function load() {
         retries = 0;
         player.loadVideoById(videoId, time / 1000);
         player.playVideo();
-        logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)}){-clr}`);
+        logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)})`);
 
         currentVideo = message;
-        queue = queue.filter(video => video.videoId !== videoId);
+        queue = queue.filter((video) => video.videoId !== videoId);
     });
 
-    messaging.setHandler('users', message => {
+    messaging.setHandler('users', (message) => {
         message.names.forEach(([user, name]: [UserId, string]) => {
             zone.getUser(user).name = name;
         });
         listUsers();
     });
 
-    messaging.setHandler('leave', message => zone.users.delete(message.userId));
-    messaging.setHandler('move', message => {
+    messaging.setHandler('leave', (message) => zone.users.delete(message.userId));
+    messaging.setHandler('move', (message) => {
         zone.getUser(message.userId).position = message.position;
     });
-    messaging.setHandler('avatar', message => {
+    messaging.setHandler('avatar', (message) => {
         zone.getUser(message.userId).avatar = message.data;
-        
-        if (message.userId === userId)
-            localStorage.setItem('avatar', message.data);
+
+        if (message.userId === localUserId) localStorage.setItem('avatar', message.data);
 
         if (!avatarTiles.has(message.data)) {
             const texture: blitsy.TextureData = {
-                _type: "texture", format: "M1", width: 8, height: 8, data: message.data
+                _type: 'texture',
+                format: 'M1',
+                width: 8,
+                height: 8,
+                data: message.data,
             };
             try {
                 const context = blitsy.decodeTexture(texture);
@@ -197,24 +223,28 @@ async function load() {
             }
         }
     });
-    messaging.setHandler('emotes', message => {
+    messaging.setHandler('emotes', (message) => {
         zone.getUser(message.userId).emotes = message.emotes;
     });
-    messaging.setHandler('chat', message => {
+    messaging.setHandler('chat', (message) => {
         const name = getUsername(message.userId);
         logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
-        if (message.userId !== userId) {
+        if (message.userId !== localUserId) {
             notify(name, message.text, 'chat');
         }
     });
-    messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
-    messaging.setHandler('name', message => {
-        if (message.userId === userId) {
-            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}{-clr}`);
+    messaging.setHandler('status', (message) => logChat(`{clr=#FF00FF}! ${message.text}`));
+    messaging.setHandler('name', (message) => {
+        if (message.userId === localUserId) {
+            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}`);
         } else if (!zone.users.has(message.userId)) {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
+            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined`);
         } else {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
+            logChat(
+                `{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${
+                    message.name
+                }`,
+            );
         }
 
         zone.getUser(message.userId).name = message.name;
@@ -222,11 +252,13 @@ async function load() {
 
     let lastSearchResults: YoutubeVideo[] = [];
 
-    messaging.setHandler('search', message => {
+    messaging.setHandler('search', (message) => {
         const { results }: { results: YoutubeVideo[] } = message;
 
         lastSearchResults = results;
-        const lines = results.slice(0, 5).map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration)})`);
+        const lines = results
+            .slice(0, 5)
+            .map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration)})`);
         logChat('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
 
@@ -251,8 +283,7 @@ async function load() {
 
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
-        if (userId)
-            messaging!.send('name', { name: chatName.value });
+        if (localUserId) messaging!.send('name', { name: chatName.value });
     });
 
     function logChat(text: string) {
@@ -261,7 +292,7 @@ async function load() {
     }
 
     function move(dx: number, dy: number) {
-        const user = zone.getUser(userId);
+        const user = zone.getUser(localUserId);
 
         if (user.position) {
             user.position[0] = clamp(0, 15, user.position[0] + dx);
@@ -283,24 +314,26 @@ async function load() {
         if (zone.users.size === 0) {
             logChat('{clr=#FF00FF}! no other users');
         } else {
-            const names = Array.from(zone.users.values()).map(user => getUsername(user.userId));
-            logChat(`{clr=#FF00FF}! ${zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+            const names = Array.from(zone.users.values()).map((user) => getUsername(user.userId));
+            logChat(
+                `{clr=#FF00FF}! ${zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`,
+            );
         }
     }
 
     const help = [
-        "press tab: toggle typing/controls",
-        "press q: toggle queue",
-        "press 1/2/3: toggle emotes",
-        "/youtube videoId",
-        "/search query terms",
-        "/lucky search terms",
-        "/skip",
-        "/avatar binary as base64",
-        "/users",
-        "/notify",
-        "/volume 100",
-        "/resync",
+        'press tab: toggle typing/controls',
+        'press q: toggle queue',
+        'press 1/2/3: toggle emotes',
+        '/youtube videoId',
+        '/search query terms',
+        '/lucky search terms',
+        '/skip',
+        '/avatar binary as base64',
+        '/users',
+        '/notify',
+        '/volume 100',
+        '/resync',
     ].join('\n');
 
     function listHelp() {
@@ -308,36 +341,33 @@ async function load() {
     }
 
     function playFromSearchResult(args: string) {
-        const index = parseInt(args) - 1;
+        const index = parseInt(args, 10) - 1;
 
-        if (isNaN(index))
-            logChat(`{clr=#FF00FF}! did not understand '${args}' as a number`);
+        if (isNaN(index)) logChat(`{clr=#FF00FF}! did not understand '${args}' as a number`);
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
             logChat(`{clr=#FF00FF}! there is no #${index + 1} search result`);
-        else
-            messaging!.send('youtube', { videoId: lastSearchResults[index].videoId });
+        else messaging!.send('youtube', { videoId: lastSearchResults[index].videoId });
     }
 
     const chatCommands = new Map<string, (args: string) => void>();
-    chatCommands.set('search',  args => messaging!.send('search',  { query: args    }));
-    chatCommands.set('youtube', args => messaging!.send('youtube', { videoId: args  }));
-    chatCommands.set('skip',    args => {
-        if (currentVideo)
-            messaging!.send('skip',    { password: args, videoId: currentVideo.videoId })
+    chatCommands.set('search', (args) => messaging!.send('search', { query: args }));
+    chatCommands.set('youtube', (args) => messaging!.send('youtube', { videoId: args }));
+    chatCommands.set('skip', (args) => {
+        if (currentVideo) messaging!.send('skip', { password: args, videoId: currentVideo.videoId });
     });
-    chatCommands.set('users',   args => listUsers());
-    chatCommands.set('help',    args => listHelp());
-    chatCommands.set('result',  playFromSearchResult);
-    chatCommands.set('lucky',   args => messaging!.send('search',  { query: args, lucky: true }));
-    chatCommands.set('reboot',  args => messaging!.send('reboot',  { master_key: args }));
-    chatCommands.set('avatar',  args => messaging!.send('avatar',  { data: args }));
-    chatCommands.set('avatar2', args => {
+    chatCommands.set('users', (args) => listUsers());
+    chatCommands.set('help', (args) => listHelp());
+    chatCommands.set('result', playFromSearchResult);
+    chatCommands.set('lucky', (args) => messaging!.send('search', { query: args, lucky: true }));
+    chatCommands.set('reboot', (args) => messaging!.send('reboot', { master_key: args }));
+    chatCommands.set('avatar', (args) => messaging!.send('avatar', { data: args }));
+    chatCommands.set('avatar2', (args) => {
         const ascii = args.replace(/\s+/g, '\n');
         const avatar = blitsy.decodeAsciiTexture(ascii, '1');
         const data = blitsy.encodeTexture(avatar, 'M1').data;
         messaging!.send('avatar', { data });
     });
-    chatCommands.set('volume',  args => setVolume(parseInt(args.trim(), 10)));
+    chatCommands.set('volume', (args) => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('resync', () => messaging!.send('resync', {}));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
@@ -345,11 +375,10 @@ async function load() {
     });
 
     function toggleEmote(emote: string) {
-        const user = zone.getUser(userId);
+        const user = zone.getUser(localUserId);
         if (user.emotes.includes(emote))
             messaging!.send('emotes', { emotes: user.emotes.filter((e: string) => e !== emote) });
-        else
-            messaging!.send('emotes', { emotes: user.emotes.concat([emote]) });
+        else messaging!.send('emotes', { emotes: user.emotes.concat([emote]) });
     }
 
     const gameKeys = new Map<string, () => void>();
@@ -357,11 +386,11 @@ async function load() {
     gameKeys.set('1', () => toggleEmote('wvy'));
     gameKeys.set('2', () => toggleEmote('sky'));
     gameKeys.set('3', () => toggleEmote('rbw'));
-    gameKeys.set('q', () => showQueue = !showQueue);
-    gameKeys.set('ArrowLeft',  () => move(-1,  0));
-    gameKeys.set('ArrowRight', () => move( 1,  0));
-    gameKeys.set('ArrowDown',  () => move( 0,  1));
-    gameKeys.set('ArrowUp',    () => move( 0, -1));
+    gameKeys.set('q', () => (showQueue = !showQueue));
+    gameKeys.set('ArrowLeft', () => move(-1, 0));
+    gameKeys.set('ArrowRight', () => move(1, 0));
+    gameKeys.set('ArrowDown', () => move(0, 1));
+    gameKeys.set('ArrowUp', () => move(0, -1));
 
     function sendChat() {
         const line = chatInput.value;
@@ -376,14 +405,14 @@ async function load() {
                 listHelp();
             }
         } else if (line.length > 0) {
-            messaging!.send('chat', {text: parseFakedown(line)});
+            messaging!.send('chat', { text: parseFakedown(line) });
         }
 
-        chatInput.value = "";
+        chatInput.value = '';
     }
 
-    document.addEventListener('keydown', event => {
-        const typing = document.activeElement!.tagName === "INPUT";
+    document.addEventListener('keydown', (event) => {
+        const typing = document.activeElement!.tagName === 'INPUT';
 
         if (typing) {
             if (event.key === 'Tab' || event.key === 'Escape') {
@@ -418,19 +447,17 @@ async function load() {
     function animatePage(page: Page) {
         page.forEach((glyph, i) => {
             glyph.hidden = false;
-            if (glyph.styles.has("r")) glyph.hidden = false;
-            if (glyph.styles.has("clr")) {
-                const hex = glyph.styles.get("clr") as string;
+            if (glyph.styles.has('r')) glyph.hidden = false;
+            if (glyph.styles.has('clr')) {
+                const hex = glyph.styles.get('clr') as string;
                 const rgb = hex2rgb(hex);
                 glyph.color = rgb2num(...rgb);
             }
-            if (glyph.styles.has("shk")) 
-                glyph.offset = blitsy.makeVector2(randomInt(-1, 1), randomInt(-1, 1));
-            if (glyph.styles.has("wvy"))
-                glyph.offset.y = (Math.sin(i + performance.now() * 5 / 1000) * 3) | 0;
-            if (glyph.styles.has("rbw")) {
-                const h = Math.abs( Math.sin( (performance.now() / 600) - (i / 8) ) );
-                const [r, g, b] = hslToRgb( h, 1, 0.5 );
+            if (glyph.styles.has('shk')) glyph.offset = blitsy.makeVector2(randomInt(-1, 1), randomInt(-1, 1));
+            if (glyph.styles.has('wvy')) glyph.offset.y = (Math.sin(i + (performance.now() * 5) / 1000) * 3) | 0;
+            if (glyph.styles.has('rbw')) {
+                const h = Math.abs(Math.sin(performance.now() / 600 - i / 8));
+                const [r, g, b] = hslToRgb(h, 1, 0.5);
                 glyph.color = rgb2num(r, g, b);
             }
         });
@@ -449,15 +476,15 @@ async function load() {
         let bottom = 256 - 4;
         for (let i = chatPages.length - 1; i >= 0 && bottom >= 0; --i) {
             const page = chatPages[i];
-            const height = getPageHeight(page, font);
+            const messageHeight = getPageHeight(page, font);
 
-            const y = bottom - height;
+            const y = bottom - messageHeight;
 
             animatePage(page);
             pageRenderer.renderPage(page, 8, y);
             chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
             bottom = y;
-        }        
+        }
 
         sceneContext.clearRect(0, 0, 512, 512);
         sceneContext.drawImage(room.canvas, 0, 0);
@@ -470,16 +497,15 @@ async function load() {
             let dy = 0;
 
             if (emotes.includes('shk')) {
-                dx += randomInt(-8,  8);
-                dy += randomInt(-8,  8);
+                dx += randomInt(-8, 8);
+                dy += randomInt(-8, 8);
             }
 
             if (emotes.includes('wvy')) {
-                dy += Math.sin((performance.now() / 250) - (position[0] / 2)) * 4;
+                dy += Math.sin(performance.now() / 250 - position[0] / 2) * 4;
             }
 
             let [r, g, b] = [255, 255, 255];
-
 
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
@@ -487,11 +513,11 @@ async function load() {
             let image = avatarTiles.get(avatar) || avatarImage;
 
             if (emotes.includes('rbw')) {
-                const h = Math.abs( Math.sin( (performance.now() / 600) - (position[0] / 8) ) );
-                [r, g, b] = hslToRgb( h, 1, 0.5 );
+                const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
+                [r, g, b] = hslToRgb(h, 1, 0.5);
                 image = recolored(image, rgb2num(r, g, b));
             }
-            
+
             sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
 
@@ -500,13 +526,12 @@ async function load() {
         function line(title: string, seconds: number) {
             const time = secondsToTime(seconds);
             const limit = cols - time.length;
-            const cut = title.length < limit ? title.padEnd(limit, " ") : title.slice(0, limit - 4) + "... ";
+            const cut = title.length < limit ? title.padEnd(limit, ' ') : title.slice(0, limit - 4) + '... ';
             lines.push(cut + time);
         }
 
         const remaining = Math.round(player.getDuration() - player.getCurrentTime());
-        if (currentVideo && remaining > 0)
-            line(currentVideo.title, remaining);
+        if (currentVideo && remaining > 0) line(currentVideo.title, remaining);
 
         let total = remaining;
 
@@ -523,9 +548,9 @@ async function load() {
         animatePage(queuePage);
         pageRenderer.renderPage(queuePage, 0, 0);
 
-        const height = getPageHeight(queuePage, font);
+        const queueHeight = getPageHeight(queuePage, font);
         chatContext.fillStyle = 'rgb(0, 0, 0)';
-        chatContext.fillRect(0, 0, 512, height * 2 + 16);
+        chatContext.fillRect(0, 0, 512, queueHeight * 2 + 16);
         chatContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
 
         window.requestAnimationFrame(redraw);
@@ -550,7 +575,7 @@ function drawRoom(room: CanvasRenderingContext2D) {
     }
 
     room.fillStyle = 'rgb(0, 0, 0)';
-    room.globalAlpha = .75;
+    room.globalAlpha = 0.75;
     room.fillRect(0, 0, 512, 512);
 }
 
@@ -569,6 +594,6 @@ function enter() {
     (document.querySelector('#chat-name') as HTMLInputElement).value = joinName;
     localStorage.setItem('name', joinName);
     const urlparams = new URLSearchParams(window.location.search);
-    const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
-    messaging!.connect('ws://' + zone);
+    const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
+    messaging!.connect('ws://' + zoneURL);
 }

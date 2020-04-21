@@ -1,5 +1,9 @@
 declare const YT: any;
-declare global { interface Window { onYouTubePlayerAPIReady: () => void } };
+declare global {
+    interface Window {
+        onYouTubePlayerAPIReady: () => void;
+    }
+}
 
 export function loadYoutube(id: string, width: number, height: number): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -14,16 +18,16 @@ export function loadYoutube(id: string, width: number, height: number): Promise<
                 },
                 events: {
                     onReady: () => resolve(player),
-                    onError: () => reject("youtube error :("),
+                    onError: () => reject('youtube error :('),
                     onStateChange: (event: any) => console.log(`YT STATE: ${event.data}`),
                 },
             });
         };
 
-        var tag = document.createElement('script');
-        tag.onerror = () => console.log("youtube error :(");
-        tag.src = "https://www.youtube.com/player_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
+        const tag = document.createElement('script');
+        tag.onerror = () => console.log('youtube error :(');
+        tag.src = 'https://www.youtube.com/player_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode!.insertBefore(tag, firstScriptTag);
-    });   
+    });
 }

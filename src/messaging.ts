@@ -1,4 +1,4 @@
-import { sleep } from "./utility";
+import { sleep } from './utility';
 
 export class WebSocketMessaging {
     public websocket: WebSocket | undefined = undefined;
@@ -7,27 +7,25 @@ export class WebSocketMessaging {
     connect(address: string) {
         this.disconnect();
         this.websocket = new WebSocket(address);
-        this.websocket.onopen = event => this.onOpen(event);
-        this.websocket.onclose = event => this.onClose(event);
-        this.websocket.onmessage = event => this.onMessage(event);
+        this.websocket.onopen = (event) => this.onOpen(event);
+        this.websocket.onclose = (event) => this.onClose(event);
+        this.websocket.onmessage = (event) => this.onMessage(event);
     }
 
     reconnect() {
         if (!this.websocket) return;
-        console.log("reconnecting");
+        console.log('reconnecting');
         this.connect(this.websocket.url);
     }
 
     disconnect() {
         if (!this.websocket) return;
-        //this.websocket.onclose = undefined;
         this.websocket.close(1000);
         this.websocket = undefined;
     }
 
     async wait() {
-        while (this.websocket && this.websocket.readyState === WebSocket.CONNECTING)
-            await sleep(10);
+        while (this.websocket && this.websocket.readyState === WebSocket.CONNECTING) await sleep(10);
     }
 
     send(type: string, message: any) {
@@ -46,7 +44,7 @@ export class WebSocketMessaging {
     onMessage(event: MessageEvent) {
         const message = JSON.parse(event.data);
         const handler = this.handlers.get(message.type);
-        
+
         if (handler) {
             try {
                 handler(message);
