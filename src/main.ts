@@ -328,98 +328,74 @@ async function load() {
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
     });
 
+    function toggleEmote(emote: string) {
+        const avatar = avatars.get(userId);
+        if (!avatar) return;
+        if (avatar.emotes.includes(emote))
+            messaging!.send('emotes', { emotes: avatar.emotes.filter((e: string) => e !== emote) });
+        else
+            messaging!.send('emotes', { emotes: avatar.emotes.concat([emote]) });
+    }
+
+    const gameKeys = new Map<string, () => void>();
+    gameKeys.set('Tab', () => chatInput.focus());
+    gameKeys.set('1', () => toggleEmote('wvy'));
+    gameKeys.set('2', () => toggleEmote('sky'));
+    gameKeys.set('3', () => toggleEmote('rbw'));
+    gameKeys.set('q', () => showQueue = !showQueue);
+    gameKeys.set('ArrowLeft',  () => move(-1,  0));
+    gameKeys.set('ArrowRight', () => move( 1,  0));
+    gameKeys.set('ArrowDown',  () => move( 0,  1));
+    gameKeys.set('ArrowUp',    () => move( 0, -1));
+
+    function sendChat() {
+        const line = chatInput.value;
+        const slash = line.match(/^\/(\w+)(.*)/);
+
+        if (slash) {
+            const command = chatCommands.get(slash[1]);
+            if (command) {
+                command(slash[2].trim());
+            } else {
+                logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
+                listHelp();
+            }
+        } else if (line.length > 0) {
+            messaging!.send('chat', {text: parseFakedown(line)});
+        }
+
+        chatInput.value = "";
+    }
+
     document.addEventListener('keydown', event => {
         const typing = document.activeElement!.tagName === "INPUT";
 
-        if (!typing && event.key === 'Tab') {
-            chatInput.focus();
-            event.preventDefault();
-        } else if (typing && (event.key === 'Tab' || event.key === 'Escape')) {
-            chatInput.blur();
-            event.preventDefault();
-        }
-
-        if (typing && event.key === 'Enter') {
-            const line = chatInput.value;
-            const slash = line.match(/^\/(\w+)(.*)/);
-
-            if (slash) {
-                const command = chatCommands.get(slash[1]);
-                if (command) {
-                    command(slash[2].trim());
-                } else {
-                    logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
-                    listHelp();
-                }
-            } else if (line.length > 0) {
-                messaging!.send('chat', {text: parseFakedown(line)});
+        if (typing) {
+            if (event.key === 'Tab' || event.key === 'Escape') {
+                chatInput.blur();
+                event.preventDefault();
+            } else if (event.key === 'Enter') {
+                sendChat();
             }
-
-            chatInput.value = "";
-        } 
-
-        if (typing)
-            return;
-
-        function toggleEmote(emote: string) {
-            const avatar = avatars.get(userId);
-            if (!avatar) return;
-            if (avatar.emotes.includes(emote))
-                messaging!.send('emotes', { emotes: avatar.emotes.filter((e: string) => e !== emote) });
-            else
-                messaging!.send('emotes', { emotes: avatar.emotes.concat([emote]) });
-        }
-        
-        if (event.key === '1')
-            toggleEmote('wvy');
-        else if (event.key === '2')
-            toggleEmote('shk');
-        else if (event.key === '3')
-            toggleEmote('rbw');
-
-        if (event.key === "q") {
-            showQueue = !showQueue;
-        }
-
-        if (event.key === 'ArrowLeft') {
-            move(-1,  0);
-            event.preventDefault();
-        } else if (event.key === 'ArrowRight') {
-            move( 1,  0);
-            event.preventDefault();
-        } else if (event.key === 'ArrowDown') {
-            move( 0,  1);
-            event.preventDefault();
-        } else if (event.key === 'ArrowUp') {
-            move( 0, -1);
-            event.preventDefault();
+        } else if (!typing) {
+            const func = gameKeys.get(event.key);
+            if (func) {
+                func();
+                event.stopPropagation();
+                event.preventDefault();
+            }
         }
     });
 
     const chatContext = document.querySelector<HTMLCanvasElement>('#chat-canvas')!.getContext('2d')!;
     chatContext.imageSmoothingEnabled = false;
 
-    const canvas = document.querySelector<HTMLCanvasElement>('#scene-canvas')!;
-    const context = canvas.getContext('2d')!;
-    context.imageSmoothingEnabled = false;
+    const sceneContext = document.querySelector<HTMLCanvasElement>('#scene-canvas')!.getContext('2d')!;
+    sceneContext.imageSmoothingEnabled = false;
 
     const room = blitsy.createContext2D(512, 512);
     room.imageSmoothingEnabled = false;
-    room.fillStyle = 'rgb(0, 82, 204)';
-    room.fillRect(0, 0, 512, 512);
-
-    for (let x = 0; x < 16; ++x) {
-        for (let y = 0; y < 10; ++y) {
-            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
-        }
-        for (let y = 10; y < 16; ++y) {
-            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
-        }
-    }
-
-    room.fillStyle = 'rgb(0, 0, 0)';
-    room.globalAlpha = .75;
-    room.fillRect(0, 0, 512, 512);
+    drawRoom(room);
 
     const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new PageRenderer(256, 256);
@@ -468,8 +444,8 @@ async function load() {
             bottom = y;
         }        
 
-        context.clearRect(0, 0, 512, 512);
-        context.drawImage(room.canvas, 0, 0);
+        sceneContext.clearRect(0, 0, 512, 512);
+        sceneContext.drawImage(room.canvas, 0, 0);
 
         avatars.forEach((avatar, userId) => {
             const { position } = avatar;
@@ -501,7 +477,7 @@ async function load() {
                 image = recolored(image, rgb2num(r, g, b));
             }
             
-            context.drawImage(image.canvas, x, y, 32, 32);
+            sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
 
         const lines: string[] = [];
@@ -542,6 +518,28 @@ async function load() {
 
     redraw();
 
+    setupEntrySplash();
+}
+
+function drawRoom(room: CanvasRenderingContext2D) {
+    room.fillStyle = 'rgb(0, 82, 204)';
+    room.fillRect(0, 0, 512, 512);
+
+    for (let x = 0; x < 16; ++x) {
+        for (let y = 0; y < 10; ++y) {
+            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
+        }
+        for (let y = 10; y < 16; ++y) {
+            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
+        }
+    }
+
+    room.fillStyle = 'rgb(0, 0, 0)';
+    room.globalAlpha = .75;
+    room.fillRect(0, 0, 512, 512);
+}
+
+function setupEntrySplash() {
     const entrySplash = document.querySelector('#entry-splash') as HTMLElement;
     const entryButton = document.querySelector('#entry-button') as HTMLButtonElement;
     entryButton.disabled = false;
