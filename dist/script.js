@@ -301,6 +301,18 @@ const utility_1 = require("./utility");
 const text_1 = require("./text");
 const youtube_1 = require("./youtube");
 const messaging_1 = require("./messaging");
+class ZoneState {
+    constructor() {
+        this.users = new Map();
+    }
+    reset() {
+        this.users.clear();
+    }
+    getUser(userId) {
+        return utility_1.getDefault(this.users, userId, () => ({ userId, emotes: [] }));
+    }
+}
+exports.zone = new ZoneState();
 let player;
 async function start() {
     player = await youtube_1.loadYoutube('youtube', 448, 252);
@@ -337,6 +349,8 @@ ________
 #######_
 ________
 `, '#');
+const avatarTiles = new Map();
+avatarTiles.set(undefined, avatarImage);
 const recolorBuffer = blitsy.createContext2D(8, 8);
 function recolored(tile, color) {
     recolorBuffer.clearRect(0, 0, 8, 8);
@@ -354,7 +368,6 @@ function notify(title, body, tag) {
 }
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
-const avatarTiles = new Map();
 utility_1.recolor(floorTile);
 utility_1.recolor(brickTile);
 function parseFakedown(text) {
@@ -370,7 +383,6 @@ function setVolume(volume) {
 }
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || "100", 10));
-    //setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
     const youtube = document.querySelector('#youtube');
     const joinName = document.querySelector('#join-name');
     const chatName = document.querySelector('#chat-name');
@@ -380,11 +392,9 @@ async function load() {
     joinName.value = chatName.value;
     let queue = [];
     let currentVideo;
-    const avatars = new Map();
     let userId;
-    const usernames = new Map();
     function getUsername(userId) {
-        return usernames.get(userId) || userId;
+        return exports.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
     messaging = new messaging_1.WebSocketMessaging();
@@ -393,14 +403,13 @@ async function load() {
         logChat('{clr=#00FF00}*** connected ***{-clr}');
         listHelp();
         userId = message.userId;
+        // send name
         if (chatName.value.length > 0)
             messaging.send('name', { name: chatName.value });
         queue.length = 0;
-        avatars.clear();
-        usernames.clear();
+        exports.zone.reset();
     });
     messaging.setHandler('queue', message => {
-        console.log(message);
         if (message.videos.length === 1) {
             const video = message.videos[0];
             logChat(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
@@ -420,42 +429,35 @@ async function load() {
         currentVideo = message;
         queue = queue.filter(video => video.videoId !== videoId);
     });
-    function removeUser(userId) {
-        avatars.delete(userId);
-        usernames.delete(userId);
-    }
     messaging.setHandler('users', message => {
         message.names.forEach(([user, name]) => {
-            usernames.set(user, name);
+            exports.zone.getUser(user).name = name;
         });
         listUsers();
     });
-    messaging.setHandler('leave', message => removeUser(message.userId));
+    messaging.setHandler('leave', message => exports.zone.users.delete(message.userId));
     messaging.setHandler('move', message => {
-        if (message.userId !== userId || !avatars.has(userId)) {
-            const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
-            avatar.position = message.position;
-            avatars.set(message.userId, avatar);
-        }
+        exports.zone.getUser(message.userId).position = message.position;
     });
     messaging.setHandler('avatar', message => {
-        const texture = {
-            _type: "texture", format: "M1", width: 8, height: 8, data: message.data
-        };
-        try {
-            const context = blitsy.decodeTexture(texture);
-            avatarTiles.set(message.userId, context);
-            if (message.userId === userId)
-                localStorage.setItem('avatar', message.data);
-        }
-        catch (e) {
-            console.log('fucked up avatar', getUsername(message.userId));
+        exports.zone.getUser(message.userId).avatar = message.data;
+        if (message.userId === userId)
+            localStorage.setItem('avatar', message.data);
+        if (!avatarTiles.has(message.data)) {
+            const texture = {
+                _type: "texture", format: "M1", width: 8, height: 8, data: message.data
+            };
+            try {
+                const context = blitsy.decodeTexture(texture);
+                avatarTiles.set(message.data, context);
+            }
+            catch (e) {
+                console.log('fucked up avatar', getUsername(message.userId));
+            }
         }
     });
     messaging.setHandler('emotes', message => {
-        const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
-        avatar.emotes = message.emotes;
-        avatars.set(message.userId, avatar);
+        exports.zone.getUser(message.userId).emotes = message.emotes;
     });
     messaging.setHandler('chat', message => {
         const name = getUsername(message.userId);
@@ -469,13 +471,13 @@ async function load() {
         if (message.userId === userId) {
             logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}{-clr}`);
         }
-        else if (!usernames.has(message.userId)) {
+        else if (!exports.zone.users.has(message.userId)) {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
         }
         else {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
         }
-        usernames.set(message.userId, message.name);
+        exports.zone.getUser(message.userId).name = message.name;
     });
     let lastSearchResults = [];
     messaging.setHandler('search', message => {
@@ -511,25 +513,30 @@ async function load() {
         chatPages = chatPages.slice(-32);
     }
     function move(dx, dy) {
-        let avatar = avatars.get(userId);
-        const spawning = !avatar;
-        if (avatar) {
-            avatar.position[0] = utility_1.clamp(0, 15, avatar.position[0] + dx);
-            avatar.position[1] = utility_1.clamp(0, 15, avatar.position[1] + dy);
+        const user = exports.zone.getUser(userId);
+        if (user.position) {
+            user.position[0] = utility_1.clamp(0, 15, user.position[0] + dx);
+            user.position[1] = utility_1.clamp(0, 15, user.position[1] + dy);
         }
         else {
-            avatar = { userId, position: [utility_1.randomInt(0, 15), 15], emotes: [] };
+            user.position = [utility_1.randomInt(0, 15), 15];
         }
-        messaging.send('move', { position: avatar.position });
-        const data = localStorage.getItem('avatar');
-        if (spawning && data)
-            messaging.send('avatar', { data });
+        messaging.send('move', { position: user.position });
+        if (!user.avatar) {
+            // send saved avatar
+            const data = localStorage.getItem('avatar');
+            if (data)
+                messaging.send('avatar', { data });
+        }
     }
     function listUsers() {
-        if (usernames.size === 0)
+        if (exports.zone.users.size === 0) {
             logChat('{clr=#FF00FF}! no other users');
-        else
-            logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+        }
+        else {
+            const names = Array.from(exports.zone.users.values()).map(user => getUsername(user.userId));
+            logChat(`{clr=#FF00FF}! ${exports.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+        }
     }
     const help = [
         "press tab: toggle typing/controls",
@@ -582,91 +589,68 @@ async function load() {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
     });
+    function toggleEmote(emote) {
+        const user = exports.zone.getUser(userId);
+        if (user.emotes.includes(emote))
+            messaging.send('emotes', { emotes: user.emotes.filter((e) => e !== emote) });
+        else
+            messaging.send('emotes', { emotes: user.emotes.concat([emote]) });
+    }
+    const gameKeys = new Map();
+    gameKeys.set('Tab', () => chatInput.focus());
+    gameKeys.set('1', () => toggleEmote('wvy'));
+    gameKeys.set('2', () => toggleEmote('sky'));
+    gameKeys.set('3', () => toggleEmote('rbw'));
+    gameKeys.set('q', () => showQueue = !showQueue);
+    gameKeys.set('ArrowLeft', () => move(-1, 0));
+    gameKeys.set('ArrowRight', () => move(1, 0));
+    gameKeys.set('ArrowDown', () => move(0, 1));
+    gameKeys.set('ArrowUp', () => move(0, -1));
+    function sendChat() {
+        const line = chatInput.value;
+        const slash = line.match(/^\/(\w+)(.*)/);
+        if (slash) {
+            const command = chatCommands.get(slash[1]);
+            if (command) {
+                command(slash[2].trim());
+            }
+            else {
+                logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
+                listHelp();
+            }
+        }
+        else if (line.length > 0) {
+            messaging.send('chat', { text: parseFakedown(line) });
+        }
+        chatInput.value = "";
+    }
     document.addEventListener('keydown', event => {
         const typing = document.activeElement.tagName === "INPUT";
-        if (!typing && event.key === 'Tab') {
-            chatInput.focus();
-            event.preventDefault();
-        }
-        else if (typing && (event.key === 'Tab' || event.key === 'Escape')) {
-            chatInput.blur();
-            event.preventDefault();
-        }
-        if (typing && event.key === 'Enter') {
-            const line = chatInput.value;
-            const slash = line.match(/^\/(\w+)(.*)/);
-            if (slash) {
-                const command = chatCommands.get(slash[1]);
-                if (command) {
-                    command(slash[2].trim());
-                }
-                else {
-                    logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
-                    listHelp();
-                }
+        if (typing) {
+            if (event.key === 'Tab' || event.key === 'Escape') {
+                chatInput.blur();
+                event.preventDefault();
             }
-            else if (line.length > 0) {
-                messaging.send('chat', { text: parseFakedown(line) });
+            else if (event.key === 'Enter') {
+                sendChat();
             }
-            chatInput.value = "";
         }
-        if (typing)
-            return;
-        function toggleEmote(emote) {
-            const avatar = avatars.get(userId);
-            if (!avatar)
-                return;
-            if (avatar.emotes.includes(emote))
-                messaging.send('emotes', { emotes: avatar.emotes.filter((e) => e !== emote) });
-            else
-                messaging.send('emotes', { emotes: avatar.emotes.concat([emote]) });
-        }
-        if (event.key === '1')
-            toggleEmote('wvy');
-        else if (event.key === '2')
-            toggleEmote('shk');
-        else if (event.key === '3')
-            toggleEmote('rbw');
-        if (event.key === "q") {
-            showQueue = !showQueue;
-        }
-        if (event.key === 'ArrowLeft') {
-            move(-1, 0);
-            event.preventDefault();
-        }
-        else if (event.key === 'ArrowRight') {
-            move(1, 0);
-            event.preventDefault();
-        }
-        else if (event.key === 'ArrowDown') {
-            move(0, 1);
-            event.preventDefault();
-        }
-        else if (event.key === 'ArrowUp') {
-            move(0, -1);
-            event.preventDefault();
+        else if (!typing) {
+            const func = gameKeys.get(event.key);
+            if (func) {
+                func();
+                event.stopPropagation();
+                event.preventDefault();
+            }
         }
     });
     const chatContext = document.querySelector('#chat-canvas').getContext('2d');
     chatContext.imageSmoothingEnabled = false;
-    const canvas = document.querySelector('#scene-canvas');
-    const context = canvas.getContext('2d');
-    context.imageSmoothingEnabled = false;
+    const sceneContext = document.querySelector('#scene-canvas').getContext('2d');
+    sceneContext.imageSmoothingEnabled = false;
     const room = blitsy.createContext2D(512, 512);
     room.imageSmoothingEnabled = false;
-    room.fillStyle = 'rgb(0, 82, 204)';
-    room.fillRect(0, 0, 512, 512);
-    for (let x = 0; x < 16; ++x) {
-        for (let y = 0; y < 10; ++y) {
-            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
-        }
-        for (let y = 10; y < 16; ++y) {
-            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
-        }
-    }
-    room.fillStyle = 'rgb(0, 0, 0)';
-    room.globalAlpha = .75;
-    room.fillRect(0, 0, 512, 512);
+    drawRoom(room);
     const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new text_1.PageRenderer(256, 256);
     function animatePage(page) {
@@ -707,30 +691,31 @@ async function load() {
             chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
             bottom = y;
         }
-        context.clearRect(0, 0, 512, 512);
-        context.drawImage(room.canvas, 0, 0);
-        avatars.forEach((avatar, userId) => {
-            const { position } = avatar;
-            avatar.emotes = avatar.emotes || [];
+        sceneContext.clearRect(0, 0, 512, 512);
+        sceneContext.drawImage(room.canvas, 0, 0);
+        exports.zone.users.forEach((user, userId) => {
+            const { position, emotes, avatar } = user;
+            if (!position)
+                return;
             let dx = 0;
             let dy = 0;
-            if (avatar.emotes.includes('shk')) {
+            if (emotes.includes('shk')) {
                 dx += utility_1.randomInt(-8, 8);
                 dy += utility_1.randomInt(-8, 8);
             }
-            if (avatar.emotes.includes('wvy')) {
+            if (emotes.includes('wvy')) {
                 dy += Math.sin((performance.now() / 250) - (position[0] / 2)) * 4;
             }
             let [r, g, b] = [255, 255, 255];
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
-            let image = avatarTiles.get(userId) || avatarImage;
-            if (avatar.emotes.includes('rbw')) {
+            let image = avatarTiles.get(avatar) || avatarImage;
+            if (emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin((performance.now() / 600) - (position[0] / 8)));
                 [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 image = recolored(image, utility_1.rgb2num(r, g, b));
             }
-            context.drawImage(image.canvas, x, y, 32, 32);
+            sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
         const lines = [];
         const cols = 40;
@@ -762,6 +747,24 @@ async function load() {
         window.requestAnimationFrame(redraw);
     }
     redraw();
+    setupEntrySplash();
+}
+function drawRoom(room) {
+    room.fillStyle = 'rgb(0, 82, 204)';
+    room.fillRect(0, 0, 512, 512);
+    for (let x = 0; x < 16; ++x) {
+        for (let y = 0; y < 10; ++y) {
+            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
+        }
+        for (let y = 10; y < 16; ++y) {
+            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
+        }
+    }
+    room.fillStyle = 'rgb(0, 0, 0)';
+    room.globalAlpha = .75;
+    room.fillRect(0, 0, 512, 512);
+}
+function setupEntrySplash() {
     const entrySplash = document.querySelector('#entry-splash');
     const entryButton = document.querySelector('#entry-button');
     entryButton.disabled = false;
@@ -842,8 +845,7 @@ class WebSocketMessaging {
     onOpen(event) {
         if (!this.websocket)
             return;
-        console.log('open:', event);
-        console.log(this.websocket.readyState);
+        console.log('open:', event, this.websocket.readyState);
     }
     async onClose(event) {
         console.log(`closed: ${event.code}, ${event.reason}`, event);
@@ -1260,6 +1262,15 @@ function hex2rgb(color) {
     return [0, 0, 0];
 }
 exports.hex2rgb = hex2rgb;
+function getDefault(map, key, factory) {
+    let value = map.get(key);
+    if (!value) {
+        value = factory(key);
+        map.set(key, value);
+    }
+    return value;
+}
+exports.getDefault = getDefault;
 
 },{"blitsy":7}],14:[function(require,module,exports){
 "use strict";

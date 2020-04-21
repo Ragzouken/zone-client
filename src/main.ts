@@ -1,8 +1,32 @@
 import * as blitsy from 'blitsy';
-import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb, clamp, randomInt, secondsToTime, fakedownToTag } from './utility';
+import { num2hex, YoutubeVideo, hex2rgb, rgb2num, recolor, hslToRgb, clamp, randomInt, secondsToTime, fakedownToTag, getDefault } from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube } from './youtube';
 import { WebSocketMessaging } from './messaging';
+
+type UserId = string;
+
+type UserState = {
+    userId: UserId,
+    name?: string,
+    position?: number[],
+    avatar?: string,
+    emotes: string[],
+}
+
+class ZoneState {
+    public users = new Map<UserId, UserState>();
+
+    public reset() {
+        this.users.clear();
+    }
+
+    public getUser(userId: UserId): UserState {
+        return getDefault(this.users, userId, () => ({ userId, emotes: [] }));
+    }
+}
+
+export const zone = new ZoneState();
 
 let player: any;
 async function start() {
@@ -10,8 +34,6 @@ async function start() {
     await load();
 }
 start();
-
-type UserId = string;
 
 const avatarImage = blitsy.decodeAsciiTexture(`
 ___XX___
@@ -46,6 +68,9 @@ ________
 ________
 `, '#');
 
+const avatarTiles = new Map<string | undefined, CanvasRenderingContext2D>();
+avatarTiles.set(undefined, avatarImage);
+
 const recolorBuffer = blitsy.createContext2D(8, 8);
 
 function recolored(tile: CanvasRenderingContext2D, color: number) {
@@ -66,7 +91,6 @@ function notify(title: string, body: string, tag: string) {
 
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
-const avatarTiles = new Map();
 
 recolor(floorTile);
 recolor(brickTile);
@@ -88,7 +112,6 @@ function setVolume(volume: number) {
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || "100", 10));
 
-    //setInterval(() => fetch('http://zone-server.glitch.me', {mode: 'no-cors'}), 4 * 60 * 1000);
     const youtube = document.querySelector('#youtube') as HTMLElement;
     const joinName = document.querySelector('#join-name') as HTMLInputElement;
     const chatName = document.querySelector('#chat-name') as HTMLInputElement;
@@ -101,13 +124,10 @@ async function load() {
     let queue: YoutubeVideo[] = [];
     let currentVideo: YoutubeVideo | undefined;
 
-    const avatars = new Map<UserId, any>();
-
     let userId: UserId;
-    const usernames = new Map<UserId, string>();
 
     function getUsername(userId: UserId) {
-        return usernames.get(userId) || userId;
+        return zone.getUser(userId).name || userId;
     }
 
     let showQueue = false;
@@ -118,14 +138,14 @@ async function load() {
         logChat('{clr=#00FF00}*** connected ***{-clr}');
         listHelp();
         userId = message.userId;
+        // send name
         if (chatName.value.length > 0)
             messaging!.send('name', { name: chatName.value });
+
         queue.length = 0;
-        avatars.clear();
-        usernames.clear();
+        zone.reset();
     });
     messaging.setHandler('queue', message => {
-        console.log(message);
         if (message.videos.length === 1) {
             const video = message.videos[0];
             logChat(`{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
@@ -148,44 +168,37 @@ async function load() {
         queue = queue.filter(video => video.videoId !== videoId);
     });
 
-    function removeUser(userId: UserId) {
-        avatars.delete(userId);
-        usernames.delete(userId);
-    }
-
     messaging.setHandler('users', message => {
         message.names.forEach(([user, name]: [UserId, string]) => {
-            usernames.set(user, name);
+            zone.getUser(user).name = name;
         });
         listUsers();
     });
 
-    messaging.setHandler('leave', message => removeUser(message.userId));
+    messaging.setHandler('leave', message => zone.users.delete(message.userId));
     messaging.setHandler('move', message => {
-        if (message.userId !== userId || !avatars.has(userId)) {
-            const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
-            avatar.position = message.position;
-            avatars.set(message.userId, avatar);
-        }
+        zone.getUser(message.userId).position = message.position;
     });
     messaging.setHandler('avatar', message => {
-        const texture: blitsy.TextureData = {
-            _type: "texture", format: "M1", width: 8, height: 8, data: message.data
-        };
-        try {
-            const context = blitsy.decodeTexture(texture);
-            avatarTiles.set(message.userId, context);
+        zone.getUser(message.userId).avatar = message.data;
+        
+        if (message.userId === userId)
+            localStorage.setItem('avatar', message.data);
 
-            if (message.userId === userId)
-                localStorage.setItem('avatar', message.data);
-        } catch (e) {
-            console.log('fucked up avatar', getUsername(message.userId));
+        if (!avatarTiles.has(message.data)) {
+            const texture: blitsy.TextureData = {
+                _type: "texture", format: "M1", width: 8, height: 8, data: message.data
+            };
+            try {
+                const context = blitsy.decodeTexture(texture);
+                avatarTiles.set(message.data, context);
+            } catch (e) {
+                console.log('fucked up avatar', getUsername(message.userId));
+            }
         }
     });
     messaging.setHandler('emotes', message => {
-        const avatar = avatars.get(message.userId) || { position: [0, 0], emotes: [] };
-        avatar.emotes = message.emotes;
-        avatars.set(message.userId, avatar);
+        zone.getUser(message.userId).emotes = message.emotes;
     });
     messaging.setHandler('chat', message => {
         const name = getUsername(message.userId);
@@ -198,13 +211,13 @@ async function load() {
     messaging.setHandler('name', message => {
         if (message.userId === userId) {
             logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}{-clr}`);
-        } else if (!usernames.has(message.userId)) {
+        } else if (!zone.users.has(message.userId)) {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
         } else {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
         }
 
-        usernames.set(message.userId, message.name);
+        zone.getUser(message.userId).name = message.name;
     });
 
     let lastSearchResults: YoutubeVideo[] = [];
@@ -248,28 +261,31 @@ async function load() {
     }
 
     function move(dx: number, dy: number) {
-        let avatar = avatars.get(userId);
-        const spawning = !avatar;
-        
-        if (avatar) {
-            avatar.position[0] = clamp(0, 15, avatar.position[0] + dx);
-            avatar.position[1] = clamp(0, 15, avatar.position[1] + dy);
+        const user = zone.getUser(userId);
+
+        if (user.position) {
+            user.position[0] = clamp(0, 15, user.position[0] + dx);
+            user.position[1] = clamp(0, 15, user.position[1] + dy);
         } else {
-            avatar = { userId, position: [randomInt(0, 15), 15], emotes: [] };
+            user.position = [randomInt(0, 15), 15];
         }
 
-        messaging!.send('move', { position: avatar.position });
+        messaging!.send('move', { position: user.position });
 
-        const data = localStorage.getItem('avatar');
-        if (spawning && data)
-            messaging!.send('avatar', { data });
+        if (!user.avatar) {
+            // send saved avatar
+            const data = localStorage.getItem('avatar');
+            if (data) messaging!.send('avatar', { data });
+        }
     }
 
     function listUsers() {
-        if (usernames.size === 0)
+        if (zone.users.size === 0) {
             logChat('{clr=#FF00FF}! no other users');
-        else
-            logChat(`{clr=#FF00FF}! ${usernames.size} users: {clr=#FF0000}${Array.from(usernames.values()).join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+        } else {
+            const names = Array.from(zone.users.values()).map(user => getUsername(user.userId));
+            logChat(`{clr=#FF00FF}! ${zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+        }
     }
 
     const help = [
@@ -329,12 +345,11 @@ async function load() {
     });
 
     function toggleEmote(emote: string) {
-        const avatar = avatars.get(userId);
-        if (!avatar) return;
-        if (avatar.emotes.includes(emote))
-            messaging!.send('emotes', { emotes: avatar.emotes.filter((e: string) => e !== emote) });
+        const user = zone.getUser(userId);
+        if (user.emotes.includes(emote))
+            messaging!.send('emotes', { emotes: user.emotes.filter((e: string) => e !== emote) });
         else
-            messaging!.send('emotes', { emotes: avatar.emotes.concat([emote]) });
+            messaging!.send('emotes', { emotes: user.emotes.concat([emote]) });
     }
 
     const gameKeys = new Map<string, () => void>();
@@ -447,19 +462,19 @@ async function load() {
         sceneContext.clearRect(0, 0, 512, 512);
         sceneContext.drawImage(room.canvas, 0, 0);
 
-        avatars.forEach((avatar, userId) => {
-            const { position } = avatar;
-            avatar.emotes = avatar.emotes || [];
+        zone.users.forEach((user, userId) => {
+            const { position, emotes, avatar } = user;
+            if (!position) return;
 
             let dx = 0;
             let dy = 0;
 
-            if (avatar.emotes.includes('shk')) {
+            if (emotes.includes('shk')) {
                 dx += randomInt(-8,  8);
                 dy += randomInt(-8,  8);
             }
 
-            if (avatar.emotes.includes('wvy')) {
+            if (emotes.includes('wvy')) {
                 dy += Math.sin((performance.now() / 250) - (position[0] / 2)) * 4;
             }
 
@@ -469,9 +484,9 @@ async function load() {
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
 
-            let image = avatarTiles.get(userId) || avatarImage;
+            let image = avatarTiles.get(avatar) || avatarImage;
 
-            if (avatar.emotes.includes('rbw')) {
+            if (emotes.includes('rbw')) {
                 const h = Math.abs( Math.sin( (performance.now() / 600) - (position[0] / 8) ) );
                 [r, g, b] = hslToRgb( h, 1, 0.5 );
                 image = recolored(image, rgb2num(r, g, b));

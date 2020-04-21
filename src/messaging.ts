@@ -60,8 +60,7 @@ export class WebSocketMessaging {
 
     onOpen(event: Event) {
         if (!this.websocket) return;
-        console.log('open:', event);
-        console.log(this.websocket.readyState);
+        console.log('open:', event, this.websocket.readyState);
     }
 
     async onClose(event: CloseEvent) {
