@@ -384,7 +384,7 @@ async function load() {
     const gameKeys = new Map<string, () => void>();
     gameKeys.set('Tab', () => chatInput.focus());
     gameKeys.set('1', () => toggleEmote('wvy'));
-    gameKeys.set('2', () => toggleEmote('sky'));
+    gameKeys.set('2', () => toggleEmote('shk'));
     gameKeys.set('3', () => toggleEmote('rbw'));
     gameKeys.set('q', () => (showQueue = !showQueue));
     gameKeys.set('ArrowLeft', () => move(-1, 0));

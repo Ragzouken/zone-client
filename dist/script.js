@@ -328,7 +328,7 @@ _XXXXXX_
 X_XXXX_X
 __X__X__
 __X__X__
-`, "X");
+`, 'X');
 const floorTile = blitsy.decodeAsciiTexture(`
 ________
 _X_X_X_X
@@ -362,8 +362,8 @@ function recolored(tile, color) {
     return recolorBuffer;
 }
 function notify(title, body, tag) {
-    if ("Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
-        new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
+    if ('Notification' in window && Notification.permission === 'granted' && !document.hasFocus()) {
+        const notification = new Notification(title, { body, tag, renotify: true, icon: './avatar.png' });
     }
 }
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
@@ -382,41 +382,41 @@ function setVolume(volume) {
     localStorage.setItem('volume', volume.toString());
 }
 async function load() {
-    setVolume(parseInt(localStorage.getItem('volume') || "100", 10));
+    setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
     const youtube = document.querySelector('#youtube');
     const joinName = document.querySelector('#join-name');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
     let chatPages = [];
-    chatName.value = localStorage.getItem('name') || "";
+    chatName.value = localStorage.getItem('name') || '';
     joinName.value = chatName.value;
     let queue = [];
     let currentVideo;
-    let userId;
+    let localUserId;
     function getUsername(userId) {
         return exports.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
     messaging = new messaging_1.WebSocketMessaging();
     messaging.setHandler('heartbeat', () => { });
-    messaging.setHandler('assign', message => {
-        logChat('{clr=#00FF00}*** connected ***{-clr}');
+    messaging.setHandler('assign', (message) => {
+        logChat('{clr=#00FF00}*** connected ***');
         listHelp();
-        userId = message.userId;
+        localUserId = message.userId;
         // send name
         if (chatName.value.length > 0)
             messaging.send('name', { name: chatName.value });
         queue.length = 0;
         exports.zone.reset();
     });
-    messaging.setHandler('queue', message => {
+    messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
             const video = message.videos[0];
-            logChat(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}{-clr}`);
+            logChat(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}`);
         }
         queue.push(...message.videos);
     });
-    messaging.setHandler('youtube', message => {
+    messaging.setHandler('youtube', (message) => {
         if (!message.videoId) {
             player.stopVideo();
             return;
@@ -425,27 +425,31 @@ async function load() {
         retries = 0;
         player.loadVideoById(videoId, time / 1000);
         player.playVideo();
-        logChat(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)}){-clr}`);
+        logChat(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)})`);
         currentVideo = message;
-        queue = queue.filter(video => video.videoId !== videoId);
+        queue = queue.filter((video) => video.videoId !== videoId);
     });
-    messaging.setHandler('users', message => {
+    messaging.setHandler('users', (message) => {
         message.names.forEach(([user, name]) => {
             exports.zone.getUser(user).name = name;
         });
         listUsers();
     });
-    messaging.setHandler('leave', message => exports.zone.users.delete(message.userId));
-    messaging.setHandler('move', message => {
+    messaging.setHandler('leave', (message) => exports.zone.users.delete(message.userId));
+    messaging.setHandler('move', (message) => {
         exports.zone.getUser(message.userId).position = message.position;
     });
-    messaging.setHandler('avatar', message => {
+    messaging.setHandler('avatar', (message) => {
         exports.zone.getUser(message.userId).avatar = message.data;
-        if (message.userId === userId)
+        if (message.userId === localUserId)
             localStorage.setItem('avatar', message.data);
         if (!avatarTiles.has(message.data)) {
             const texture = {
-                _type: "texture", format: "M1", width: 8, height: 8, data: message.data
+                _type: 'texture',
+                format: 'M1',
+                width: 8,
+                height: 8,
+                data: message.data,
             };
             try {
                 const context = blitsy.decodeTexture(texture);
@@ -456,23 +460,23 @@ async function load() {
             }
         }
     });
-    messaging.setHandler('emotes', message => {
+    messaging.setHandler('emotes', (message) => {
         exports.zone.getUser(message.userId).emotes = message.emotes;
     });
-    messaging.setHandler('chat', message => {
+    messaging.setHandler('chat', (message) => {
         const name = getUsername(message.userId);
         logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
-        if (message.userId !== userId) {
+        if (message.userId !== localUserId) {
             notify(name, message.text, 'chat');
         }
     });
-    messaging.setHandler('status', message => logChat(`{clr=#FF00FF}! ${message.text}{-clr}`));
-    messaging.setHandler('name', message => {
-        if (message.userId === userId) {
-            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}{-clr}`);
+    messaging.setHandler('status', (message) => logChat(`{clr=#FF00FF}! ${message.text}`));
+    messaging.setHandler('name', (message) => {
+        if (message.userId === localUserId) {
+            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}`);
         }
         else if (!exports.zone.users.has(message.userId)) {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined{-clr}`);
+            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined`);
         }
         else {
             logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
@@ -480,10 +484,12 @@ async function load() {
         exports.zone.getUser(message.userId).name = message.name;
     });
     let lastSearchResults = [];
-    messaging.setHandler('search', message => {
+    messaging.setHandler('search', (message) => {
         const { results } = message;
         lastSearchResults = results;
-        const lines = results.slice(0, 5).map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
+        const lines = results
+            .slice(0, 5)
+            .map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
         logChat('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
     setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
@@ -505,7 +511,7 @@ async function load() {
     });
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
-        if (userId)
+        if (localUserId)
             messaging.send('name', { name: chatName.value });
     });
     function logChat(text) {
@@ -513,7 +519,7 @@ async function load() {
         chatPages = chatPages.slice(-32);
     }
     function move(dx, dy) {
-        const user = exports.zone.getUser(userId);
+        const user = exports.zone.getUser(localUserId);
         if (user.position) {
             user.position[0] = utility_1.clamp(0, 15, user.position[0] + dx);
             user.position[1] = utility_1.clamp(0, 15, user.position[1] + dy);
@@ -534,29 +540,29 @@ async function load() {
             logChat('{clr=#FF00FF}! no other users');
         }
         else {
-            const names = Array.from(exports.zone.users.values()).map(user => getUsername(user.userId));
+            const names = Array.from(exports.zone.users.values()).map((user) => getUsername(user.userId));
             logChat(`{clr=#FF00FF}! ${exports.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
         }
     }
     const help = [
-        "press tab: toggle typing/controls",
-        "press q: toggle queue",
-        "press 1/2/3: toggle emotes",
-        "/youtube videoId",
-        "/search query terms",
-        "/lucky search terms",
-        "/skip",
-        "/avatar binary as base64",
-        "/users",
-        "/notify",
-        "/volume 100",
-        "/resync",
+        'press tab: toggle typing/controls',
+        'press q: toggle queue',
+        'press 1/2/3: toggle emotes',
+        '/youtube videoId',
+        '/search query terms',
+        '/lucky search terms',
+        '/skip',
+        '/avatar binary as base64',
+        '/users',
+        '/notify',
+        '/volume 100',
+        '/resync',
     ].join('\n');
     function listHelp() {
         logChat('{clr=#FFFF00}? /help\n' + help);
     }
     function playFromSearchResult(args) {
-        const index = parseInt(args) - 1;
+        const index = parseInt(args, 10) - 1;
         if (isNaN(index))
             logChat(`{clr=#FF00FF}! did not understand '${args}' as a number`);
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
@@ -565,32 +571,32 @@ async function load() {
             messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
     }
     const chatCommands = new Map();
-    chatCommands.set('search', args => messaging.send('search', { query: args }));
-    chatCommands.set('youtube', args => messaging.send('youtube', { videoId: args }));
-    chatCommands.set('skip', args => {
+    chatCommands.set('search', (args) => messaging.send('search', { query: args }));
+    chatCommands.set('youtube', (args) => messaging.send('youtube', { videoId: args }));
+    chatCommands.set('skip', (args) => {
         if (currentVideo)
             messaging.send('skip', { password: args, videoId: currentVideo.videoId });
     });
-    chatCommands.set('users', args => listUsers());
-    chatCommands.set('help', args => listHelp());
+    chatCommands.set('users', (args) => listUsers());
+    chatCommands.set('help', (args) => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', args => messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', args => messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', args => messaging.send('avatar', { data: args }));
-    chatCommands.set('avatar2', args => {
+    chatCommands.set('lucky', (args) => messaging.send('search', { query: args, lucky: true }));
+    chatCommands.set('reboot', (args) => messaging.send('reboot', { master_key: args }));
+    chatCommands.set('avatar', (args) => messaging.send('avatar', { data: args }));
+    chatCommands.set('avatar2', (args) => {
         const ascii = args.replace(/\s+/g, '\n');
         const avatar = blitsy.decodeAsciiTexture(ascii, '1');
         const data = blitsy.encodeTexture(avatar, 'M1').data;
         messaging.send('avatar', { data });
     });
-    chatCommands.set('volume', args => setVolume(parseInt(args.trim(), 10)));
+    chatCommands.set('volume', (args) => setVolume(parseInt(args.trim(), 10)));
     chatCommands.set('resync', () => messaging.send('resync', {}));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         logChat(`{clr=#FF00FF}! notifications ${permission}`);
     });
     function toggleEmote(emote) {
-        const user = exports.zone.getUser(userId);
+        const user = exports.zone.getUser(localUserId);
         if (user.emotes.includes(emote))
             messaging.send('emotes', { emotes: user.emotes.filter((e) => e !== emote) });
         else
@@ -601,7 +607,7 @@ async function load() {
     gameKeys.set('1', () => toggleEmote('wvy'));
     gameKeys.set('2', () => toggleEmote('sky'));
     gameKeys.set('3', () => toggleEmote('rbw'));
-    gameKeys.set('q', () => showQueue = !showQueue);
+    gameKeys.set('q', () => (showQueue = !showQueue));
     gameKeys.set('ArrowLeft', () => move(-1, 0));
     gameKeys.set('ArrowRight', () => move(1, 0));
     gameKeys.set('ArrowDown', () => move(0, 1));
@@ -622,10 +628,10 @@ async function load() {
         else if (line.length > 0) {
             messaging.send('chat', { text: parseFakedown(line) });
         }
-        chatInput.value = "";
+        chatInput.value = '';
     }
-    document.addEventListener('keydown', event => {
-        const typing = document.activeElement.tagName === "INPUT";
+    document.addEventListener('keydown', (event) => {
+        const typing = document.activeElement.tagName === 'INPUT';
         if (typing) {
             if (event.key === 'Tab' || event.key === 'Escape') {
                 chatInput.blur();
@@ -656,19 +662,19 @@ async function load() {
     function animatePage(page) {
         page.forEach((glyph, i) => {
             glyph.hidden = false;
-            if (glyph.styles.has("r"))
+            if (glyph.styles.has('r'))
                 glyph.hidden = false;
-            if (glyph.styles.has("clr")) {
-                const hex = glyph.styles.get("clr");
+            if (glyph.styles.has('clr')) {
+                const hex = glyph.styles.get('clr');
                 const rgb = utility_1.hex2rgb(hex);
                 glyph.color = utility_1.rgb2num(...rgb);
             }
-            if (glyph.styles.has("shk"))
+            if (glyph.styles.has('shk'))
                 glyph.offset = blitsy.makeVector2(utility_1.randomInt(-1, 1), utility_1.randomInt(-1, 1));
-            if (glyph.styles.has("wvy"))
-                glyph.offset.y = (Math.sin(i + performance.now() * 5 / 1000) * 3) | 0;
-            if (glyph.styles.has("rbw")) {
-                const h = Math.abs(Math.sin((performance.now() / 600) - (i / 8)));
+            if (glyph.styles.has('wvy'))
+                glyph.offset.y = (Math.sin(i + (performance.now() * 5) / 1000) * 3) | 0;
+            if (glyph.styles.has('rbw')) {
+                const h = Math.abs(Math.sin(performance.now() / 600 - i / 8));
                 const [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 glyph.color = utility_1.rgb2num(r, g, b);
             }
@@ -684,8 +690,8 @@ async function load() {
         let bottom = 256 - 4;
         for (let i = chatPages.length - 1; i >= 0 && bottom >= 0; --i) {
             const page = chatPages[i];
-            const height = text_1.getPageHeight(page, font);
-            const y = bottom - height;
+            const messageHeight = text_1.getPageHeight(page, font);
+            const y = bottom - messageHeight;
             animatePage(page);
             pageRenderer.renderPage(page, 8, y);
             chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
@@ -704,14 +710,14 @@ async function load() {
                 dy += utility_1.randomInt(-8, 8);
             }
             if (emotes.includes('wvy')) {
-                dy += Math.sin((performance.now() / 250) - (position[0] / 2)) * 4;
+                dy += Math.sin(performance.now() / 250 - position[0] / 2) * 4;
             }
             let [r, g, b] = [255, 255, 255];
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
             let image = avatarTiles.get(avatar) || avatarImage;
             if (emotes.includes('rbw')) {
-                const h = Math.abs(Math.sin((performance.now() / 600) - (position[0] / 8)));
+                const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 image = recolored(image, utility_1.rgb2num(r, g, b));
             }
@@ -722,7 +728,7 @@ async function load() {
         function line(title, seconds) {
             const time = utility_1.secondsToTime(seconds);
             const limit = cols - time.length;
-            const cut = title.length < limit ? title.padEnd(limit, " ") : title.slice(0, limit - 4) + "... ";
+            const cut = title.length < limit ? title.padEnd(limit, ' ') : title.slice(0, limit - 4) + '... ';
             lines.push(cut + time);
         }
         const remaining = Math.round(player.getDuration() - player.getCurrentTime());
@@ -740,9 +746,9 @@ async function load() {
         const queuePage = text_1.scriptToPages(lines.join('\n'), layout)[0];
         animatePage(queuePage);
         pageRenderer.renderPage(queuePage, 0, 0);
-        const height = text_1.getPageHeight(queuePage, font);
+        const queueHeight = text_1.getPageHeight(queuePage, font);
         chatContext.fillStyle = 'rgb(0, 0, 0)';
-        chatContext.fillRect(0, 0, 512, height * 2 + 16);
+        chatContext.fillRect(0, 0, 512, queueHeight * 2 + 16);
         chatContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
         window.requestAnimationFrame(redraw);
     }
@@ -761,7 +767,7 @@ function drawRoom(room) {
         }
     }
     room.fillStyle = 'rgb(0, 0, 0)';
-    room.globalAlpha = .75;
+    room.globalAlpha = 0.75;
     room.fillRect(0, 0, 512, 512);
 }
 function setupEntrySplash() {
@@ -778,8 +784,8 @@ function enter() {
     document.querySelector('#chat-name').value = joinName;
     localStorage.setItem('name', joinName);
     const urlparams = new URLSearchParams(window.location.search);
-    const zone = urlparams.get('zone') || 'zone-server.glitch.me/zone';
-    messaging.connect('ws://' + zone);
+    const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
+    messaging.connect('ws://' + zoneURL);
 }
 
 },{"./messaging":11,"./text":12,"./utility":13,"./youtube":14,"blitsy":7}],11:[function(require,module,exports){
@@ -794,20 +800,19 @@ class WebSocketMessaging {
     connect(address) {
         this.disconnect();
         this.websocket = new WebSocket(address);
-        this.websocket.onopen = event => this.onOpen(event);
-        this.websocket.onclose = event => this.onClose(event);
-        this.websocket.onmessage = event => this.onMessage(event);
+        this.websocket.onopen = (event) => this.onOpen(event);
+        this.websocket.onclose = (event) => this.onClose(event);
+        this.websocket.onmessage = (event) => this.onMessage(event);
     }
     reconnect() {
         if (!this.websocket)
             return;
-        console.log("reconnecting");
+        console.log('reconnecting');
         this.connect(this.websocket.url);
     }
     disconnect() {
         if (!this.websocket)
             return;
-        //this.websocket.onclose = undefined;
         this.websocket.close(1000);
         this.websocket = undefined;
     }
@@ -863,7 +868,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
 const utility_1 = require("./utility");
 const FALLBACK_CODEPOINT = '?'.codePointAt(0);
-;
 function computeLineWidth(font, line) {
     let width = 0;
     for (const char of line) {
@@ -876,7 +880,7 @@ function computeLineWidth(font, line) {
     return width;
 }
 exports.computeLineWidth = computeLineWidth;
-function makeGlyph(position, sprite, color = 0xFFFFFF, offset = blitsy_1.makeVector2(0, 0), hidden = true, styles = new Map()) {
+function makeGlyph(position, sprite, color = 0xffffff, offset = blitsy_1.makeVector2(0, 0), hidden = true, styles = new Map()) {
     return { position, sprite, color, offset, hidden, styles };
 }
 exports.makeGlyph = makeGlyph;
@@ -954,13 +958,13 @@ function filterToSpans(array, breakable) {
 }
 exports.filterToSpans = filterToSpans;
 exports.defaultStyleHandler = (styles, style) => {
-    if (style.substr(0, 1) === "+") {
+    if (style.substr(0, 1) === '+') {
         styles.set(style.substring(1), true);
     }
-    else if (style.substr(0, 1) === "-") {
+    else if (style.substr(0, 1) === '-') {
         styles.delete(style.substring(1));
     }
-    else if (style.includes("=")) {
+    else if (style.includes('=')) {
         const [key, val] = style.split(/\s*=\s*/);
         styles.set(key, val);
     }
@@ -987,62 +991,62 @@ function commandsToPages(commands, layout, styleHandler = exports.defaultStyleHa
             newPage();
     }
     function doBreak(target) {
-        if (target === "line")
+        if (target === 'line')
             endLine();
-        else if (target === "page")
+        else if (target === 'page')
             endPage();
     }
     function findNextBreakIndex() {
         let width = 0;
+        const isBreakableGlyph = (command) => command.type === 'glyph' && command.breakable;
         for (let i = 0; i < commands.length; ++i) {
             const command = commands[i];
-            if (command.type === "break")
+            if (command.type === 'break')
                 return i;
-            if (command.type === "style")
+            if (command.type === 'style')
                 continue;
             width += computeLineWidth(layout.font, command.char);
             // if we overshot, look backward for last possible breakable glyph
             if (width > layout.lineWidth) {
-                const result = find(commands, i, -1, command => command.type === "glyph"
-                    && command.breakable);
+                const result = find(commands, i, -1, isBreakableGlyph);
                 if (result)
                     return result[1];
             }
         }
-        ;
     }
     function addGlyph(command, offset) {
         const codepoint = command.char.codePointAt(0);
-        const char = layout.font.characters.get(codepoint)
-            || layout.font.characters.get(FALLBACK_CODEPOINT);
+        const char = layout.font.characters.get(codepoint) || layout.font.characters.get(FALLBACK_CODEPOINT);
         const pos = blitsy_1.makeVector2(offset, currLine * (layout.font.lineHeight + 4));
         const glyph = makeGlyph(pos, char.sprite);
         glyph.styles = new Map(styles.entries());
         page.push(glyph);
         return char.spacing;
     }
+    // tslint:disable-next-line:no-shadowed-variable
     function generateGlyphLine(commands) {
         let offset = 0;
         for (const command of commands) {
-            if (command.type === "glyph") {
+            if (command.type === 'glyph') {
                 offset += addGlyph(command, offset);
             }
-            else if (command.type === "style") {
+            else if (command.type === 'style') {
                 styleHandler(styles, command.style);
             }
         }
     }
     let index;
+    // tslint:disable-next-line:no-conditional-assignment
     while ((index = findNextBreakIndex()) !== undefined) {
         generateGlyphLine(commands.slice(0, index));
         commands = commands.slice(index);
         const command = commands[0];
-        if (command.type === "break") {
+        if (command.type === 'break') {
             doBreak(command.target);
             commands.shift();
         }
         else {
-            if (command.type === "glyph" && command.char === " ") {
+            if (command.type === 'glyph' && command.char === ' ') {
                 commands.shift();
             }
             endLine();
@@ -1058,12 +1062,11 @@ exports.commandsToPages = commandsToPages;
  * width and amend those spans so that breaking permitted in all positions.
  */
 function commandsBreakLongSpans(commands, context) {
-    const canBreak = (command) => command.type === "break"
-        || (command.type === "glyph" && command.breakable);
+    const canBreak = (command) => command.type === 'break' || (command.type === 'glyph' && command.breakable);
     const spans = filterToSpans(commands, canBreak);
     for (const span of spans) {
-        const glyphs = span.filter(command => command.type === "glyph");
-        const charWidths = glyphs.map(command => computeLineWidth(context.font, command.char));
+        const glyphs = span.filter((command) => command.type === 'glyph');
+        const charWidths = glyphs.map((command) => computeLineWidth(context.font, command.char));
         const spanWidth = charWidths.reduce((x, y) => x + y, 0);
         if (spanWidth > context.lineWidth) {
             for (const command of glyphs)
@@ -1075,24 +1078,24 @@ exports.commandsBreakLongSpans = commandsBreakLongSpans;
 function tokensToCommands(tokens) {
     const commands = [];
     function handleToken([type, buffer]) {
-        if (type === "text")
+        if (type === 'text')
             handleText(buffer);
-        else if (type === "markup")
+        else if (type === 'markup')
             handleMarkup(buffer);
     }
     function handleText(buffer) {
         for (const char of buffer) {
-            const breakable = char === " ";
-            commands.push({ type: "glyph", char, breakable });
+            const breakable = char === ' ';
+            commands.push({ type: 'glyph', char, breakable });
         }
     }
     function handleMarkup(buffer) {
-        if (buffer === "ep")
-            commands.push({ type: "break", target: "page" });
-        else if (buffer === "el")
-            commands.push({ type: "break", target: "line" });
+        if (buffer === 'ep')
+            commands.push({ type: 'break', target: 'page' });
+        else if (buffer === 'el')
+            commands.push({ type: 'break', target: 'line' });
         else
-            commands.push({ type: "style", style: buffer });
+            commands.push({ type: 'style', style: buffer });
     }
     tokens.forEach(handleToken);
     return commands;
@@ -1100,7 +1103,7 @@ function tokensToCommands(tokens) {
 exports.tokensToCommands = tokensToCommands;
 function tokeniseScript(script) {
     const tokens = [];
-    let buffer = "";
+    let buffer = '';
     let braceDepth = 0;
     function openBrace() {
         if (braceDepth === 0)
@@ -1114,19 +1117,19 @@ function tokeniseScript(script) {
     }
     function newLine() {
         flushBuffer();
-        tokens.push(["markup", "el"]);
+        tokens.push(['markup', 'el']);
     }
     function flushBuffer() {
         if (buffer.length === 0)
             return;
-        const type = braceDepth > 0 ? "markup" : "text";
+        const type = braceDepth > 0 ? 'markup' : 'text';
         tokens.push([type, buffer]);
-        buffer = "";
+        buffer = '';
     }
     const actions = {
-        "{": openBrace,
-        "}": closeBrace,
-        "\n": newLine,
+        '{': openBrace,
+        '}': closeBrace,
+        '\n': newLine,
     };
     for (const char of script) {
         if (char in actions)
@@ -1143,7 +1146,7 @@ function getPageHeight(page, font) {
         return 0;
     let ymin = page[0].position.y;
     let ymax = ymin;
-    page.forEach(char => {
+    page.forEach((char) => {
         ymin = Math.min(ymin, char.position.y);
         ymax = Math.max(ymax, char.position.y);
     });
@@ -1157,25 +1160,25 @@ exports.getPageHeight = getPageHeight;
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
 exports.randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-exports.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+exports.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 exports.clamp = (min, max, value) => Math.max(min, Math.min(max, value));
 function fakedownToTag(text, fd, tag) {
     const pattern = new RegExp(`${fd}([^${fd}]+)${fd}`, 'g');
     return text.replace(pattern, `{+${tag}}$1{-${tag}}`);
 }
 exports.fakedownToTag = fakedownToTag;
-const pad = (number) => number.toString().length >= 2 ? number.toString() : "0" + number.toString();
+const pad2 = (part) => (part.toString().length >= 2 ? part.toString() : '0' + part.toString());
 function secondsToTime(seconds) {
     const s = seconds % 60;
     const m = Math.floor(seconds / 60) % 60;
     const h = Math.floor(seconds / 3600);
-    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+    return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
 }
 exports.secondsToTime = secondsToTime;
 function recolor(context) {
-    withPixels(context, pixels => {
+    withPixels(context, (pixels) => {
         for (let i = 0; i < pixels.length; ++i)
-            if (pixels[i] === 0xFFFFFFFF)
+            if (pixels[i] === 0xffffffff)
                 pixels[i] = blitsy_1.rgbaToColor({ r: 128, g: 159, b: 255, a: 255 });
     });
 }
@@ -1196,13 +1199,15 @@ function hue2rgb(p, q, t) {
 }
 exports.hue2rgb = hue2rgb;
 function hslToRgb(h, s, l) {
-    var r, g, b;
-    if (s == 0) {
+    let r;
+    let g;
+    let b;
+    if (s === 0) {
         r = g = b = l; // achromatic
     }
     else {
-        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        var p = 2 * l - q;
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
         r = hue2rgb(p, q, h + 1 / 3);
         g = hue2rgb(p, q, h);
         b = hue2rgb(p, q, h - 1 / 3);
@@ -1216,19 +1221,18 @@ function withPixels(context, action) {
     context.putImageData(image, 0, 0);
 }
 exports.withPixels = withPixels;
-;
 function num2hex(value) {
     return rgb2hex(num2rgb(value));
 }
 exports.num2hex = num2hex;
 function rgb2num(r, g, b, a = 255) {
-    return ((a << 24) | (b << 16) | (g << 8) | (r)) >>> 0;
+    return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
 }
 exports.rgb2num = rgb2num;
 function num2rgb(value) {
-    const r = (value >> 0) & 0xFF;
-    const g = (value >> 8) & 0xFF;
-    const b = (value >> 16) & 0xFF;
+    const r = (value >> 0) & 0xff;
+    const g = (value >> 8) & 0xff;
+    const b = (value >> 16) & 0xff;
     return [r, g, b];
 }
 exports.num2rgb = num2rgb;
@@ -1238,13 +1242,13 @@ function rgb2hex(color) {
     let gs = g.toString(16);
     let bs = b.toString(16);
     if (rs.length < 2) {
-        rs = "0" + rs;
+        rs = '0' + rs;
     }
     if (gs.length < 2) {
-        gs = "0" + gs;
+        gs = '0' + gs;
     }
     if (bs.length < 2) {
-        bs = "0" + bs;
+        bs = '0' + bs;
     }
     return `#${rs}${gs}${bs}`;
 }
@@ -1253,11 +1257,7 @@ function hex2rgb(color) {
     const matches = color.match(/^#([0-9a-f]{6})$/i);
     if (matches) {
         const match = matches[1];
-        return [
-            parseInt(match.substr(0, 2), 16),
-            parseInt(match.substr(2, 2), 16),
-            parseInt(match.substr(4, 2), 16)
-        ];
+        return [parseInt(match.substr(0, 2), 16), parseInt(match.substr(2, 2), 16), parseInt(match.substr(4, 2), 16)];
     }
     return [0, 0, 0];
 }
@@ -1275,7 +1275,6 @@ exports.getDefault = getDefault;
 },{"blitsy":7}],14:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-;
 function loadYoutube(id, width, height) {
     return new Promise((resolve, reject) => {
         window.onYouTubePlayerAPIReady = () => {
@@ -1289,15 +1288,15 @@ function loadYoutube(id, width, height) {
                 },
                 events: {
                     onReady: () => resolve(player),
-                    onError: () => reject("youtube error :("),
+                    onError: () => reject('youtube error :('),
                     onStateChange: (event) => console.log(`YT STATE: ${event.data}`),
                 },
             });
         };
-        var tag = document.createElement('script');
-        tag.onerror = () => console.log("youtube error :(");
-        tag.src = "https://www.youtube.com/player_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
+        const tag = document.createElement('script');
+        tag.onerror = () => console.log('youtube error :(');
+        tag.src = 'https://www.youtube.com/player_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     });
 }
