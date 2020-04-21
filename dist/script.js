@@ -605,7 +605,7 @@ async function load() {
     const gameKeys = new Map();
     gameKeys.set('Tab', () => chatInput.focus());
     gameKeys.set('1', () => toggleEmote('wvy'));
-    gameKeys.set('2', () => toggleEmote('sky'));
+    gameKeys.set('2', () => toggleEmote('shk'));
     gameKeys.set('3', () => toggleEmote('rbw'));
     gameKeys.set('q', () => (showQueue = !showQueue));
     gameKeys.set('ArrowLeft', () => move(-1, 0));
@@ -705,18 +705,18 @@ async function load() {
                 return;
             let dx = 0;
             let dy = 0;
-            if (emotes.includes('shk')) {
+            if (emotes && emotes.includes('shk')) {
                 dx += utility_1.randomInt(-8, 8);
                 dy += utility_1.randomInt(-8, 8);
             }
-            if (emotes.includes('wvy')) {
+            if (emotes && emotes.includes('wvy')) {
                 dy += Math.sin(performance.now() / 250 - position[0] / 2) * 4;
             }
             let [r, g, b] = [255, 255, 255];
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
             let image = avatarTiles.get(avatar) || avatarImage;
-            if (emotes.includes('rbw')) {
+            if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
                 image = recolored(image, utility_1.rgb2num(r, g, b));

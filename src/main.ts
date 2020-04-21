@@ -496,12 +496,12 @@ async function load() {
             let dx = 0;
             let dy = 0;
 
-            if (emotes.includes('shk')) {
+            if (emotes && emotes.includes('shk')) {
                 dx += randomInt(-8, 8);
                 dy += randomInt(-8, 8);
             }
 
-            if (emotes.includes('wvy')) {
+            if (emotes && emotes.includes('wvy')) {
                 dy += Math.sin(performance.now() / 250 - position[0] / 2) * 4;
             }
 
@@ -512,7 +512,7 @@ async function load() {
 
             let image = avatarTiles.get(avatar) || avatarImage;
 
-            if (emotes.includes('rbw')) {
+            if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = hslToRgb(h, 1, 0.5);
                 image = recolored(image, rgb2num(r, g, b));
