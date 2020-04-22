@@ -821,11 +821,63 @@ exports.decodeAsciiTexture = decodeAsciiTexture;
 },{"./base64":2,"./canvas":3}],11:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const blitsy = require("blitsy");
-const utility_1 = require("./utility");
+const blitsy_1 = require("blitsy");
 const text_1 = require("./text");
-const youtube_1 = require("./youtube");
-const messaging_1 = require("./messaging");
+const utility_1 = require("./utility");
+const font = blitsy_1.decodeFont(blitsy_1.fonts['ascii-small']);
+const layout = { font, lineWidth: 240, lineCount: 9999 };
+class ChatPanel {
+    constructor() {
+        this.context = blitsy_1.createContext2D(256, 256);
+        this.chatPages = [];
+        this.pageRenderer = new text_1.PageRenderer(256, 256);
+    }
+    log(text) {
+        this.chatPages.push(text_1.scriptToPages(text, layout)[0]);
+        this.chatPages = this.chatPages.slice(-32);
+    }
+    render() {
+        this.context.clearRect(0, 0, 256, 256);
+        let bottom = 256 - 4;
+        for (let i = this.chatPages.length - 1; i >= 0 && bottom >= 0; --i) {
+            const page = this.chatPages[i];
+            const messageHeight = text_1.getPageHeight(page, font);
+            const y = bottom - messageHeight;
+            animatePage(page);
+            this.pageRenderer.renderPage(page, 8, y);
+            this.context.drawImage(this.pageRenderer.pageImage, 0, 0);
+            bottom = y;
+        }
+    }
+}
+exports.ChatPanel = ChatPanel;
+function animatePage(page) {
+    page.forEach((glyph, i) => {
+        glyph.hidden = false;
+        if (glyph.styles.has('r'))
+            glyph.hidden = false;
+        if (glyph.styles.has('clr')) {
+            const hex = glyph.styles.get('clr');
+            const rgb = utility_1.hex2rgb(hex);
+            glyph.color = utility_1.rgb2num(...rgb);
+        }
+        if (glyph.styles.has('shk'))
+            glyph.offset = blitsy_1.makeVector2(utility_1.randomInt(-1, 1), utility_1.randomInt(-1, 1));
+        if (glyph.styles.has('wvy'))
+            glyph.offset.y = (Math.sin(i + (performance.now() * 5) / 1000) * 3) | 0;
+        if (glyph.styles.has('rbw')) {
+            const h = Math.abs(Math.sin(performance.now() / 600 - i / 8));
+            const [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
+            glyph.color = utility_1.rgb2num(r, g, b);
+        }
+    });
+}
+exports.animatePage = animatePage;
+
+},{"./text":15,"./utility":16,"blitsy":8}],12:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const utility_1 = require("./utility");
 class ZoneState {
     constructor() {
         this.users = new Map();
@@ -837,7 +889,25 @@ class ZoneState {
         return utility_1.getDefault(this.users, userId, () => ({ userId, emotes: [] }));
     }
 }
-exports.zone = new ZoneState();
+exports.ZoneState = ZoneState;
+class ZoneClient {
+    constructor() {
+        this.zone = new ZoneState();
+    }
+}
+exports.ZoneClient = ZoneClient;
+
+},{"./utility":16}],13:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const blitsy = require("blitsy");
+const utility_1 = require("./utility");
+const text_1 = require("./text");
+const youtube_1 = require("./youtube");
+const messaging_1 = require("./messaging");
+const chat_1 = require("./chat");
+const client_1 = require("./client");
+exports.client = new client_1.ZoneClient();
 let player;
 async function start() {
     player = await youtube_1.loadYoutube('youtube', 448, 252);
@@ -874,8 +944,37 @@ ________
 #######_
 ________
 `, '#');
+utility_1.recolor(floorTile);
+utility_1.recolor(brickTile);
+const roomBackground = blitsy.createContext2D(128, 128);
+drawRoomBackground(roomBackground);
+function drawRoomBackground(room) {
+    room.fillStyle = 'rgb(0, 82, 204)';
+    room.fillRect(0, 0, 128, 128);
+    for (let x = 0; x < 16; ++x) {
+        for (let y = 0; y < 10; ++y) {
+            room.drawImage(brickTile.canvas, x * 8, y * 8);
+        }
+        for (let y = 10; y < 16; ++y) {
+            room.drawImage(floorTile.canvas, x * 8, y * 8);
+        }
+    }
+    room.fillStyle = 'rgb(0, 0, 0)';
+    room.globalAlpha = 0.75;
+    room.fillRect(0, 0, 128, 128);
+}
 const avatarTiles = new Map();
 avatarTiles.set(undefined, avatarImage);
+function decodeBase64(data) {
+    const texture = {
+        _type: 'texture',
+        format: 'M1',
+        width: 8,
+        height: 8,
+        data,
+    };
+    return blitsy.decodeTexture(texture);
+}
 const recolorBuffer = blitsy.createContext2D(8, 8);
 function recolored(tile, color) {
     recolorBuffer.clearRect(0, 0, 8, 8);
@@ -893,8 +992,6 @@ function notify(title, body, tag) {
 }
 const font = blitsy.decodeFont(blitsy.fonts['ascii-small']);
 const layout = { font, lineWidth: 240, lineCount: 9999 };
-utility_1.recolor(floorTile);
-utility_1.recolor(brickTile);
 function parseFakedown(text) {
     text = utility_1.fakedownToTag(text, '##', 'shk');
     text = utility_1.fakedownToTag(text, '~~', 'wvy');
@@ -902,6 +999,7 @@ function parseFakedown(text) {
     return text;
 }
 let messaging;
+let chat = new chat_1.ChatPanel();
 function setVolume(volume) {
     player.volume = volume;
     localStorage.setItem('volume', volume.toString());
@@ -912,32 +1010,31 @@ async function load() {
     const joinName = document.querySelector('#join-name');
     const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    let chatPages = [];
     chatName.value = localStorage.getItem('name') || '';
     joinName.value = chatName.value;
     let queue = [];
     let currentVideoMessage;
     let localUserId;
     function getUsername(userId) {
-        return exports.zone.getUser(userId).name || userId;
+        return exports.client.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
     messaging = new messaging_1.WebSocketMessaging();
     messaging.setHandler('heartbeat', () => { });
     messaging.setHandler('assign', (message) => {
-        logChat('{clr=#00FF00}*** connected ***');
+        chat.log('{clr=#00FF00}*** connected ***');
         listHelp();
         localUserId = message.userId;
         // send name
         if (chatName.value.length > 0)
             messaging.send('name', { name: chatName.value });
         queue.length = 0;
-        exports.zone.reset();
+        exports.client.zone.reset();
     });
     messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
             const video = message.videos[0];
-            logChat(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}`);
+            chat.log(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}`);
         }
         queue.push(...message.videos);
     });
@@ -948,35 +1045,27 @@ async function load() {
         }
         const { videoId, title, duration, time } = message;
         player.playVideoById(videoId, time / 1000);
-        logChat(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)})`);
+        chat.log(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)})`);
         currentVideoMessage = message;
         queue = queue.filter((video) => video.videoId !== videoId);
     });
     messaging.setHandler('users', (message) => {
         message.names.forEach(([user, name]) => {
-            exports.zone.getUser(user).name = name;
+            exports.client.zone.getUser(user).name = name;
         });
         listUsers();
     });
-    messaging.setHandler('leave', (message) => exports.zone.users.delete(message.userId));
+    messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
     messaging.setHandler('move', (message) => {
-        exports.zone.getUser(message.userId).position = message.position;
+        exports.client.zone.getUser(message.userId).position = message.position;
     });
     messaging.setHandler('avatar', (message) => {
-        exports.zone.getUser(message.userId).avatar = message.data;
+        exports.client.zone.getUser(message.userId).avatar = message.data;
         if (message.userId === localUserId)
             localStorage.setItem('avatar', message.data);
         if (!avatarTiles.has(message.data)) {
-            const texture = {
-                _type: 'texture',
-                format: 'M1',
-                width: 8,
-                height: 8,
-                data: message.data,
-            };
             try {
-                const context = blitsy.decodeTexture(texture);
-                avatarTiles.set(message.data, context);
+                avatarTiles.set(message.data, decodeBase64(message.data));
             }
             catch (e) {
                 console.log('fucked up avatar', getUsername(message.userId));
@@ -984,27 +1073,29 @@ async function load() {
         }
     });
     messaging.setHandler('emotes', (message) => {
-        exports.zone.getUser(message.userId).emotes = message.emotes;
+        exports.client.zone.getUser(message.userId).emotes = message.emotes;
     });
     messaging.setHandler('chat', (message) => {
         const name = getUsername(message.userId);
-        logChat(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
+        chat.log(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
         if (message.userId !== localUserId) {
             notify(name, message.text, 'chat');
         }
     });
-    messaging.setHandler('status', (message) => logChat(`{clr=#FF00FF}! ${message.text}`));
+    messaging.setHandler('status', (message) => chat.log(`{clr=#FF00FF}! ${message.text}`));
     messaging.setHandler('name', (message) => {
+        const next = message.name;
         if (message.userId === localUserId) {
-            logChat(`{clr=#FF00FF}! you are {clr=#FF0000}${message.name}`);
+            chat.log(`{clr=#FF00FF}! you are {clr=#FF0000}${next}`);
         }
-        else if (!exports.zone.users.has(message.userId)) {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${message.name} {clr=#FF00FF}joined`);
+        else if (!exports.client.zone.users.has(message.userId)) {
+            chat.log(`{clr=#FF00FF}! {clr=#FF0000}${next} {clr=#FF00FF}joined`);
         }
         else {
-            logChat(`{clr=#FF00FF}! {clr=#FF0000}${getUsername(message.userId)}{clr=#FF00FF} is now {clr=#FF0000}${message.name}`);
+            const prev = getUsername(message.userId);
+            chat.log(`{clr=#FF00FF}! {clr=#FF0000}${prev}{clr=#FF00FF} is now {clr=#FF0000}${next}`);
         }
-        exports.zone.getUser(message.userId).name = message.name;
+        exports.client.zone.getUser(message.userId).name = message.name;
     });
     let lastSearchResults = [];
     messaging.setHandler('search', (message) => {
@@ -1013,27 +1104,18 @@ async function load() {
         const lines = results
             .slice(0, 5)
             .map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
-        logChat('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
+        chat.log('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
     setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
     window.onbeforeunload = () => messaging.disconnect();
-    player.on('error', error => {
-        if (!currentVideoMessage)
-            return;
-        messaging.send('error', { videoId: player.video });
-        console.log('youtube error after retries :(', error.reason);
-    });
+    player.on('error', () => messaging.send('error', { videoId: player.video }));
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
         if (localUserId)
             messaging.send('name', { name: chatName.value });
     });
-    function logChat(text) {
-        chatPages.push(text_1.scriptToPages(text, layout)[0]);
-        chatPages = chatPages.slice(-32);
-    }
     function move(dx, dy) {
-        const user = exports.zone.getUser(localUserId);
+        const user = exports.client.zone.getUser(localUserId);
         if (user.position) {
             user.position[0] = utility_1.clamp(0, 15, user.position[0] + dx);
             user.position[1] = utility_1.clamp(0, 15, user.position[1] + dy);
@@ -1050,12 +1132,12 @@ async function load() {
         }
     }
     function listUsers() {
-        if (exports.zone.users.size === 0) {
-            logChat('{clr=#FF00FF}! no other users');
+        if (exports.client.zone.users.size === 0) {
+            chat.log('{clr=#FF00FF}! no other users');
         }
         else {
-            const names = Array.from(exports.zone.users.values()).map((user) => getUsername(user.userId));
-            logChat(`{clr=#FF00FF}! ${exports.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+            const names = Array.from(exports.client.zone.users.values()).map((user) => getUsername(user.userId));
+            chat.log(`{clr=#FF00FF}! ${exports.client.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
         }
     }
     const help = [
@@ -1073,14 +1155,14 @@ async function load() {
         '/resync',
     ].join('\n');
     function listHelp() {
-        logChat('{clr=#FFFF00}? /help\n' + help);
+        chat.log('{clr=#FFFF00}? /help\n' + help);
     }
     function playFromSearchResult(args) {
         const index = parseInt(args, 10) - 1;
         if (isNaN(index))
-            logChat(`{clr=#FF00FF}! did not understand '${args}' as a number`);
+            chat.log(`{clr=#FF00FF}! did not understand '${args}' as a number`);
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
-            logChat(`{clr=#FF00FF}! there is no #${index + 1} search result`);
+            chat.log(`{clr=#FF00FF}! there is no #${index + 1} search result`);
         else
             messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
     }
@@ -1107,10 +1189,10 @@ async function load() {
     chatCommands.set('resync', () => messaging.send('resync', {}));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
-        logChat(`{clr=#FF00FF}! notifications ${permission}`);
+        chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     function toggleEmote(emote) {
-        const user = exports.zone.getUser(localUserId);
+        const user = exports.client.zone.getUser(localUserId);
         if (user.emotes.includes(emote))
             messaging.send('emotes', { emotes: user.emotes.filter((e) => e !== emote) });
         else
@@ -1135,7 +1217,7 @@ async function load() {
                 command(slash[2].trim());
             }
             else {
-                logChat(`{clr=#FF00FF}! no command /${slash[1]}`);
+                chat.log(`{clr=#FF00FF}! no command /${slash[1]}`);
                 listHelp();
             }
         }
@@ -1168,52 +1250,12 @@ async function load() {
     chatContext.imageSmoothingEnabled = false;
     const sceneContext = document.querySelector('#scene-canvas').getContext('2d');
     sceneContext.imageSmoothingEnabled = false;
-    const room = blitsy.createContext2D(512, 512);
-    room.imageSmoothingEnabled = false;
-    drawRoom(room);
-    const dialog = blitsy.createContext2D(256, 256);
     const pageRenderer = new text_1.PageRenderer(256, 256);
-    function animatePage(page) {
-        page.forEach((glyph, i) => {
-            glyph.hidden = false;
-            if (glyph.styles.has('r'))
-                glyph.hidden = false;
-            if (glyph.styles.has('clr')) {
-                const hex = glyph.styles.get('clr');
-                const rgb = utility_1.hex2rgb(hex);
-                glyph.color = utility_1.rgb2num(...rgb);
-            }
-            if (glyph.styles.has('shk'))
-                glyph.offset = blitsy.makeVector2(utility_1.randomInt(-1, 1), utility_1.randomInt(-1, 1));
-            if (glyph.styles.has('wvy'))
-                glyph.offset.y = (Math.sin(i + (performance.now() * 5) / 1000) * 3) | 0;
-            if (glyph.styles.has('rbw')) {
-                const h = Math.abs(Math.sin(performance.now() / 600 - i / 8));
-                const [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
-                glyph.color = utility_1.rgb2num(r, g, b);
-            }
-        });
-    }
     const zoneLogo = document.querySelector('#zone-logo');
-    function redraw() {
-        youtube.hidden = !player.playing;
-        zoneLogo.hidden = player.playing;
-        dialog.clearRect(0, 0, 256, 256);
-        chatContext.fillStyle = 'rgb(0, 0, 0)';
-        chatContext.fillRect(0, 0, 512, 512);
-        let bottom = 256 - 4;
-        for (let i = chatPages.length - 1; i >= 0 && bottom >= 0; --i) {
-            const page = chatPages[i];
-            const messageHeight = text_1.getPageHeight(page, font);
-            const y = bottom - messageHeight;
-            animatePage(page);
-            pageRenderer.renderPage(page, 8, y);
-            chatContext.drawImage(pageRenderer.pageImage, 0, 0, 512, 512);
-            bottom = y;
-        }
+    function drawZone() {
         sceneContext.clearRect(0, 0, 512, 512);
-        sceneContext.drawImage(room.canvas, 0, 0);
-        exports.zone.users.forEach((user, userId) => {
+        sceneContext.drawImage(roomBackground.canvas, 0, 0, 512, 512);
+        exports.client.zone.users.forEach((user, userId) => {
             const { position, emotes, avatar } = user;
             if (!position)
                 return;
@@ -1237,6 +1279,8 @@ async function load() {
             }
             sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
+    }
+    function drawQueue() {
         const lines = [];
         const cols = 40;
         function line(title, seconds) {
@@ -1258,31 +1302,25 @@ async function load() {
             lines[lines.length - 1] = '{clr=#FF00FF}' + lines[lines.length - 1];
         }
         const queuePage = text_1.scriptToPages(lines.join('\n'), layout)[0];
-        animatePage(queuePage);
+        chat_1.animatePage(queuePage);
         pageRenderer.renderPage(queuePage, 0, 0);
         const queueHeight = text_1.getPageHeight(queuePage, font);
-        chatContext.fillStyle = 'rgb(0, 0, 0)';
         chatContext.fillRect(0, 0, 512, queueHeight * 2 + 16);
         chatContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
+    }
+    function redraw() {
+        youtube.hidden = !player.playing;
+        zoneLogo.hidden = player.playing;
+        drawZone();
+        chatContext.fillStyle = 'rgb(0, 0, 0)';
+        chatContext.fillRect(0, 0, 512, 512);
+        chat.render();
+        chatContext.drawImage(chat.context.canvas, 0, 0, 512, 512);
+        drawQueue();
         window.requestAnimationFrame(redraw);
     }
     redraw();
     setupEntrySplash();
-}
-function drawRoom(room) {
-    room.fillStyle = 'rgb(0, 82, 204)';
-    room.fillRect(0, 0, 512, 512);
-    for (let x = 0; x < 16; ++x) {
-        for (let y = 0; y < 10; ++y) {
-            room.drawImage(brickTile.canvas, x * 32, y * 32, 32, 32);
-        }
-        for (let y = 10; y < 16; ++y) {
-            room.drawImage(floorTile.canvas, x * 32, y * 32, 32, 32);
-        }
-    }
-    room.fillStyle = 'rgb(0, 0, 0)';
-    room.globalAlpha = 0.75;
-    room.fillRect(0, 0, 512, 512);
 }
 function setupEntrySplash() {
     const entrySplash = document.querySelector('#entry-splash');
@@ -1302,7 +1340,7 @@ function enter() {
     messaging.connect('ws://' + zoneURL);
 }
 
-},{"./messaging":12,"./text":13,"./utility":14,"./youtube":15,"blitsy":8}],12:[function(require,module,exports){
+},{"./chat":11,"./client":12,"./messaging":14,"./text":15,"./utility":16,"./youtube":17,"blitsy":8}],14:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utility_1 = require("./utility");
@@ -1376,7 +1414,7 @@ class WebSocketMessaging {
 }
 exports.WebSocketMessaging = WebSocketMessaging;
 
-},{"./utility":14}],13:[function(require,module,exports){
+},{"./utility":16}],15:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
@@ -1669,7 +1707,7 @@ function getPageHeight(page, font) {
 }
 exports.getPageHeight = getPageHeight;
 
-},{"./utility":14,"blitsy":8}],14:[function(require,module,exports){
+},{"./utility":16,"blitsy":8}],16:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
@@ -1786,7 +1824,7 @@ function getDefault(map, key, factory) {
 }
 exports.getDefault = getDefault;
 
-},{"blitsy":8}],15:[function(require,module,exports){
+},{"blitsy":8}],17:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const events_1 = require("events");
@@ -1870,5 +1908,5 @@ function errorEventToYoutubeError(event) {
     return { code: event.data, reason: CODE_REASONS.get(event.data) || 'unknown' };
 }
 
-},{"./utility":14,"events":1}]},{},[11])(11)
+},{"./utility":16,"events":1}]},{},[13])(13)
 });
