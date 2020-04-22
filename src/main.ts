@@ -13,7 +13,7 @@ import {
     getDefault,
 } from './utility';
 import { Page, scriptToPages, PageRenderer, getPageHeight } from './text';
-import { loadYoutube } from './youtube';
+import { loadYoutube, YoutubePlayer } from './youtube';
 import { WebSocketMessaging } from './messaging';
 
 type UserId = string;
@@ -40,7 +40,7 @@ class ZoneState {
 
 export const zone = new ZoneState();
 
-let player: any;
+let player: YoutubePlayer | undefined;
 async function start() {
     player = await loadYoutube('youtube', 448, 252);
     await load();
@@ -126,7 +126,7 @@ function parseFakedown(text: string) {
 let messaging: WebSocketMessaging | undefined;
 
 function setVolume(volume: number) {
-    player.setVolume(volume);
+    player!.volume = volume;
     localStorage.setItem('volume', volume.toString());
 }
 
@@ -143,7 +143,7 @@ async function load() {
     joinName.value = chatName.value;
 
     let queue: YoutubeVideo[] = [];
-    let currentVideo: YoutubeVideo | undefined;
+    let currentVideoMessage: YoutubeVideo | undefined;
 
     let localUserId: UserId;
 
@@ -178,16 +178,14 @@ async function load() {
     });
     messaging.setHandler('youtube', (message) => {
         if (!message.videoId) {
-            player.stopVideo();
+            player!.stop();
             return;
         }
         const { videoId, title, duration, time } = message;
-        retries = 0;
-        player.loadVideoById(videoId, time / 1000);
-        player.playVideo();
+        player!.playVideoById(videoId, time / 1000);
         logChat(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)})`);
 
-        currentVideo = message;
+        currentVideoMessage = message;
         queue = queue.filter((video) => video.videoId !== videoId);
     });
 
@@ -266,19 +264,10 @@ async function load() {
 
     window.onbeforeunload = () => messaging!.disconnect();
 
-    let retries = 0;
-    player.addEventListener('onError', () => {
-        if (!currentVideo) return;
-
-        if (retries >= 3) {
-            messaging!.send('error', { videoId: currentVideo.videoId });
-            console.log('youtube error after retries :(');
-        } else {
-            player.loadVideoById(currentVideo.videoId, currentVideo.time! / 1000);
-            player.playVideo();
-            retries += 1;
-            console.log('youtube retry', retries);
-        }
+    player!.on('error', error => {
+        if (!currentVideoMessage) return;
+        messaging!.send('error', { videoId: player!.video });
+        console.log('youtube error after retries :(', error.reason);
     });
 
     chatName.addEventListener('change', () => {
@@ -353,7 +342,7 @@ async function load() {
     chatCommands.set('search', (args) => messaging!.send('search', { query: args }));
     chatCommands.set('youtube', (args) => messaging!.send('youtube', { videoId: args }));
     chatCommands.set('skip', (args) => {
-        if (currentVideo) messaging!.send('skip', { password: args, videoId: currentVideo.videoId });
+        if (currentVideoMessage) messaging!.send('skip', { password: args, videoId: currentVideoMessage.videoId });
     });
     chatCommands.set('users', (args) => listUsers());
     chatCommands.set('help', (args) => listHelp());
@@ -465,8 +454,8 @@ async function load() {
 
     const zoneLogo = document.querySelector('#zone-logo') as HTMLElement;
     function redraw() {
-        youtube.hidden = player.getPlayerState() !== 1;
-        zoneLogo.hidden = player.getPlayerState() === 1;
+        youtube.hidden = !player!.playing;
+        zoneLogo.hidden = player!.playing;
 
         dialog.clearRect(0, 0, 256, 256);
 
@@ -530,8 +519,8 @@ async function load() {
             lines.push(cut + time);
         }
 
-        const remaining = Math.round(player.getDuration() - player.getCurrentTime());
-        if (currentVideo && remaining > 0) line(currentVideo.title, remaining);
+        const remaining = Math.round(player!.duration - player!.time);
+        if (currentVideoMessage && remaining > 0) line(currentVideoMessage.title, remaining);
 
         let total = remaining;
 

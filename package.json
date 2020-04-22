@@ -13,7 +13,9 @@
     "test": "jest --config jestconfig.json",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "tslint -p tsconfig.json",
-    "publish": "npm run build && neocities upload -d zone ./dist/*"
+
+    "publish:check": "npm run lint && npm run test",
+    "publish": "npm run build && npm run publish:check && neocities upload -d zone ./dist/*"
   },
   "repository": {
     "type": "git",
@@ -30,6 +32,7 @@
   "homepage": "https://github.com/Ragzouken/zone-client#readme",
   "devDependencies": {
     "@types/jest": "^25.2.1",
+    "@types/node": "^13.13.2",
     "browserify-shim": "^3.8.14",
     "jest": "^25.3.0",
     "prettier": "^2.0.4",
