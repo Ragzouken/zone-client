@@ -1,5 +1,5 @@
-import { EventEmitter } from "events";
-import { sleep } from "./utility";
+import { EventEmitter } from 'events';
+import { sleep } from './utility';
 
 declare const YT: any;
 declare global {
@@ -9,9 +9,9 @@ declare global {
 }
 
 export type YoutubeError = {
-    code: number,
-    reason: string,
-}
+    code: number;
+    reason: string;
+};
 
 export declare interface YoutubePlayer {
     on(event: 'error', listener: (error: YoutubeError) => void): this;
@@ -21,21 +21,28 @@ export class YoutubePlayer extends EventEmitter {
     private currentVideo: string | undefined;
     private startSeconds = 0;
     private retries = 0;
-    
+
     constructor(public readonly player: any) {
         super();
 
-        this.player.addEventListener(
-            'onError', 
-            async (e: any) => this.onError(e),
-        );
+        this.player.addEventListener('onError', async (e: any) => this.onError(e));
     }
 
-    public get video() { return this.currentVideo; }
-    public get time(): number { return this.player.getCurrentTime(); }
-    public get duration(): number { return this.player.getDuration(); }
-    public get volume(): number { return this.player.getVolume(); }
-    public set volume(value: number) { this.player.setVolume(value * 100); }
+    public get video() {
+        return this.currentVideo;
+    }
+    public get time(): number {
+        return this.player.getCurrentTime();
+    }
+    public get duration(): number {
+        return this.player.getDuration();
+    }
+    public get volume(): number {
+        return this.player.getVolume();
+    }
+    public set volume(value: number) {
+        this.player.setVolume(value * 100);
+    }
 
     public get playing() {
         return this.player.getPlayerState() === 1;
@@ -60,8 +67,8 @@ export class YoutubePlayer extends EventEmitter {
         } else {
             await sleep(500);
             this.retries += 1;
-            this.player.loadVideoById({ 
-                videoId: this.video, 
+            this.player.loadVideoById({
+                videoId: this.video,
                 startSeconds: this.startSeconds,
             });
         }

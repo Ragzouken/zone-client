@@ -66,7 +66,6 @@ ________
     '#',
 );
 
-
 recolor(floorTile);
 recolor(brickTile);
 
@@ -133,7 +132,7 @@ function parseFakedown(text: string) {
     return text;
 }
 
-let chat = new ChatPanel();
+const chat = new ChatPanel();
 
 function setVolume(volume: number) {
     player!.volume = volume;
@@ -168,8 +167,7 @@ async function load() {
         if (client.localUserId) {
             const user = client.localUser;
 
-            if (user.position)
-                client.messaging.send('move', { position: user.position });
+            if (user.position) client.messaging.send('move', { position: user.position });
             if (user.avatar) {
                 client.messaging.send('avatar', { data: user.avatar });
                 client.messaging.send('emotes', { emotes: user.emotes });
@@ -304,7 +302,9 @@ async function load() {
         } else {
             const names = Array.from(client.zone.users.values()).map((user) => getUsername(user.userId));
             chat.log(
-                `{clr=#FF00FF}! ${client.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`,
+                `{clr=#FF00FF}! ${client.zone.users.size} users: {clr=#FF0000}${names.join(
+                    '{clr=#FF00FF}, {clr=#FF0000}',
+                )}`,
             );
         }
     }
@@ -341,7 +341,8 @@ async function load() {
     chatCommands.set('search', (args) => client.messaging.send('search', { query: args }));
     chatCommands.set('youtube', (args) => client.messaging.send('youtube', { videoId: args }));
     chatCommands.set('skip', (args) => {
-        if (currentVideoMessage) client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
+        if (currentVideoMessage)
+            client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
     });
     chatCommands.set('users', (args) => listUsers());
     chatCommands.set('help', (args) => listHelp());
@@ -431,36 +432,36 @@ async function load() {
     function drawZone() {
         sceneContext.clearRect(0, 0, 512, 512);
         sceneContext.drawImage(roomBackground.canvas, 0, 0, 512, 512);
-    
+
         client.zone.users.forEach((user, userId) => {
             const { position, emotes, avatar } = user;
             if (!position) return;
-    
+
             let dx = 0;
             let dy = 0;
-    
+
             if (emotes && emotes.includes('shk')) {
                 dx += randomInt(-8, 8);
                 dy += randomInt(-8, 8);
             }
-    
+
             if (emotes && emotes.includes('wvy')) {
                 dy += Math.sin(performance.now() / 250 - position[0] / 2) * 4;
             }
-    
+
             let [r, g, b] = [255, 255, 255];
-    
+
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
-    
+
             let image = avatarTiles.get(avatar) || avatarImage;
-    
+
             if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = hslToRgb(h, 1, 0.5);
                 image = recolored(image, rgb2num(r, g, b));
             }
-    
+
             sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
     }
@@ -503,7 +504,7 @@ async function load() {
         zoneLogo.hidden = player!.playing;
 
         drawZone();
-        
+
         chatContext.fillStyle = 'rgb(0, 0, 0)';
         chatContext.fillRect(0, 0, 512, 512);
 

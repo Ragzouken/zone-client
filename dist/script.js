@@ -1002,7 +1002,7 @@ function parseFakedown(text) {
     text = utility_1.fakedownToTag(text, '==', 'rbw');
     return text;
 }
-let chat = new chat_1.ChatPanel();
+const chat = new chat_1.ChatPanel();
 function setVolume(volume) {
     player.volume = volume;
     localStorage.setItem('volume', volume.toString());

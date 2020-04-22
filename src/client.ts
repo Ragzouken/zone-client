@@ -1,5 +1,5 @@
-import { getDefault } from "./utility";
-import { WebSocketMessaging } from "./messaging";
+import { getDefault } from './utility';
+import { WebSocketMessaging } from './messaging';
 
 export type UserId = string;
 
