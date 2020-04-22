@@ -878,6 +878,7 @@ exports.animatePage = animatePage;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utility_1 = require("./utility");
+const messaging_1 = require("./messaging");
 class ZoneState {
     constructor() {
         this.users = new Map();
@@ -893,18 +894,21 @@ exports.ZoneState = ZoneState;
 class ZoneClient {
     constructor() {
         this.zone = new ZoneState();
+        this.messaging = new messaging_1.WebSocketMessaging();
+    }
+    get localUser() {
+        return this.zone.getUser(this.localUserId);
     }
 }
 exports.ZoneClient = ZoneClient;
 
-},{"./utility":16}],13:[function(require,module,exports){
+},{"./messaging":14,"./utility":16}],13:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy = require("blitsy");
 const utility_1 = require("./utility");
 const text_1 = require("./text");
 const youtube_1 = require("./youtube");
-const messaging_1 = require("./messaging");
 const chat_1 = require("./chat");
 const client_1 = require("./client");
 exports.client = new client_1.ZoneClient();
@@ -998,7 +1002,6 @@ function parseFakedown(text) {
     text = utility_1.fakedownToTag(text, '==', 'rbw');
     return text;
 }
-let messaging;
 let chat = new chat_1.ChatPanel();
 function setVolume(volume) {
     player.volume = volume;
@@ -1014,31 +1017,38 @@ async function load() {
     joinName.value = chatName.value;
     let queue = [];
     let currentVideoMessage;
-    let localUserId;
     function getUsername(userId) {
         return exports.client.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
-    messaging = new messaging_1.WebSocketMessaging();
-    messaging.setHandler('heartbeat', () => { });
-    messaging.setHandler('assign', (message) => {
+    exports.client.messaging.setHandler('heartbeat', () => { });
+    exports.client.messaging.setHandler('assign', (message) => {
         chat.log('{clr=#00FF00}*** connected ***');
         listHelp();
-        localUserId = message.userId;
+        if (exports.client.localUserId) {
+            const user = exports.client.localUser;
+            if (user.position)
+                exports.client.messaging.send('move', { position: user.position });
+            if (user.avatar) {
+                exports.client.messaging.send('avatar', { data: user.avatar });
+                exports.client.messaging.send('emotes', { emotes: user.emotes });
+            }
+        }
+        exports.client.localUserId = message.userId;
         // send name
         if (chatName.value.length > 0)
-            messaging.send('name', { name: chatName.value });
+            exports.client.messaging.send('name', { name: chatName.value });
         queue.length = 0;
         exports.client.zone.reset();
     });
-    messaging.setHandler('queue', (message) => {
+    exports.client.messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
             const video = message.videos[0];
             chat.log(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}`);
         }
         queue.push(...message.videos);
     });
-    messaging.setHandler('youtube', (message) => {
+    exports.client.messaging.setHandler('youtube', (message) => {
         if (!message.videoId) {
             player.stop();
             return;
@@ -1049,19 +1059,19 @@ async function load() {
         currentVideoMessage = message;
         queue = queue.filter((video) => video.videoId !== videoId);
     });
-    messaging.setHandler('users', (message) => {
+    exports.client.messaging.setHandler('users', (message) => {
         message.names.forEach(([user, name]) => {
             exports.client.zone.getUser(user).name = name;
         });
         listUsers();
     });
-    messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
-    messaging.setHandler('move', (message) => {
+    exports.client.messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
+    exports.client.messaging.setHandler('move', (message) => {
         exports.client.zone.getUser(message.userId).position = message.position;
     });
-    messaging.setHandler('avatar', (message) => {
+    exports.client.messaging.setHandler('avatar', (message) => {
         exports.client.zone.getUser(message.userId).avatar = message.data;
-        if (message.userId === localUserId)
+        if (message.userId === exports.client.localUserId)
             localStorage.setItem('avatar', message.data);
         if (!avatarTiles.has(message.data)) {
             try {
@@ -1072,20 +1082,20 @@ async function load() {
             }
         }
     });
-    messaging.setHandler('emotes', (message) => {
+    exports.client.messaging.setHandler('emotes', (message) => {
         exports.client.zone.getUser(message.userId).emotes = message.emotes;
     });
-    messaging.setHandler('chat', (message) => {
+    exports.client.messaging.setHandler('chat', (message) => {
         const name = getUsername(message.userId);
         chat.log(`{clr=#FF0000}${name}:{-clr} ${message.text}`);
-        if (message.userId !== localUserId) {
+        if (message.userId !== exports.client.localUserId) {
             notify(name, message.text, 'chat');
         }
     });
-    messaging.setHandler('status', (message) => chat.log(`{clr=#FF00FF}! ${message.text}`));
-    messaging.setHandler('name', (message) => {
+    exports.client.messaging.setHandler('status', (message) => chat.log(`{clr=#FF00FF}! ${message.text}`));
+    exports.client.messaging.setHandler('name', (message) => {
         const next = message.name;
-        if (message.userId === localUserId) {
+        if (message.userId === exports.client.localUserId) {
             chat.log(`{clr=#FF00FF}! you are {clr=#FF0000}${next}`);
         }
         else if (!exports.client.zone.users.has(message.userId)) {
@@ -1098,7 +1108,7 @@ async function load() {
         exports.client.zone.getUser(message.userId).name = message.name;
     });
     let lastSearchResults = [];
-    messaging.setHandler('search', (message) => {
+    exports.client.messaging.setHandler('search', (message) => {
         const { results } = message;
         lastSearchResults = results;
         const lines = results
@@ -1106,16 +1116,16 @@ async function load() {
             .map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
         chat.log('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
-    setInterval(() => messaging.send('heartbeat', {}), 30 * 1000);
-    window.onbeforeunload = () => messaging.disconnect();
-    player.on('error', () => messaging.send('error', { videoId: player.video }));
+    setInterval(() => exports.client.messaging.send('heartbeat', {}), 30 * 1000);
+    window.onbeforeunload = () => exports.client.messaging.disconnect();
+    player.on('error', () => exports.client.messaging.send('error', { videoId: player.video }));
     chatName.addEventListener('change', () => {
         localStorage.setItem('name', chatName.value);
-        if (localUserId)
-            messaging.send('name', { name: chatName.value });
+        if (exports.client.localUserId)
+            exports.client.messaging.send('name', { name: chatName.value });
     });
     function move(dx, dy) {
-        const user = exports.client.zone.getUser(localUserId);
+        const user = exports.client.localUser;
         if (user.position) {
             user.position[0] = utility_1.clamp(0, 15, user.position[0] + dx);
             user.position[1] = utility_1.clamp(0, 15, user.position[1] + dy);
@@ -1123,12 +1133,12 @@ async function load() {
         else {
             user.position = [utility_1.randomInt(0, 15), 15];
         }
-        messaging.send('move', { position: user.position });
+        exports.client.messaging.send('move', { position: user.position });
         if (!user.avatar) {
             // send saved avatar
             const data = localStorage.getItem('avatar');
             if (data)
-                messaging.send('avatar', { data });
+                exports.client.messaging.send('avatar', { data });
         }
     }
     function listUsers() {
@@ -1164,39 +1174,39 @@ async function load() {
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
             chat.log(`{clr=#FF00FF}! there is no #${index + 1} search result`);
         else
-            messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
+            exports.client.messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
     }
     const chatCommands = new Map();
-    chatCommands.set('search', (args) => messaging.send('search', { query: args }));
-    chatCommands.set('youtube', (args) => messaging.send('youtube', { videoId: args }));
+    chatCommands.set('search', (args) => exports.client.messaging.send('search', { query: args }));
+    chatCommands.set('youtube', (args) => exports.client.messaging.send('youtube', { videoId: args }));
     chatCommands.set('skip', (args) => {
         if (currentVideoMessage)
-            messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
+            exports.client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
     });
     chatCommands.set('users', (args) => listUsers());
     chatCommands.set('help', (args) => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', (args) => messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', (args) => messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => messaging.send('avatar', { data: args }));
+    chatCommands.set('lucky', (args) => exports.client.messaging.send('search', { query: args, lucky: true }));
+    chatCommands.set('reboot', (args) => exports.client.messaging.send('reboot', { master_key: args }));
+    chatCommands.set('avatar', (args) => exports.client.messaging.send('avatar', { data: args }));
     chatCommands.set('avatar2', (args) => {
         const ascii = args.replace(/\s+/g, '\n');
         const avatar = blitsy.decodeAsciiTexture(ascii, '1');
         const data = blitsy.encodeTexture(avatar, 'M1').data;
-        messaging.send('avatar', { data });
+        exports.client.messaging.send('avatar', { data });
     });
     chatCommands.set('volume', (args) => setVolume(parseInt(args.trim(), 10)));
-    chatCommands.set('resync', () => messaging.send('resync', {}));
+    chatCommands.set('resync', () => exports.client.messaging.send('resync', {}));
     chatCommands.set('notify', async () => {
         const permission = await Notification.requestPermission();
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     function toggleEmote(emote) {
-        const user = exports.client.zone.getUser(localUserId);
-        if (user.emotes.includes(emote))
-            messaging.send('emotes', { emotes: user.emotes.filter((e) => e !== emote) });
+        const emotes = exports.client.localUser.emotes;
+        if (emotes.includes(emote))
+            exports.client.messaging.send('emotes', { emotes: emotes.filter((e) => e !== emote) });
         else
-            messaging.send('emotes', { emotes: user.emotes.concat([emote]) });
+            exports.client.messaging.send('emotes', { emotes: emotes.concat([emote]) });
     }
     const gameKeys = new Map();
     gameKeys.set('Tab', () => chatInput.focus());
@@ -1222,7 +1232,7 @@ async function load() {
             }
         }
         else if (line.length > 0) {
-            messaging.send('chat', { text: parseFakedown(line) });
+            exports.client.messaging.send('chat', { text: parseFakedown(line) });
         }
         chatInput.value = '';
     }
@@ -1337,10 +1347,10 @@ function enter() {
     localStorage.setItem('name', joinName);
     const urlparams = new URLSearchParams(window.location.search);
     const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
-    messaging.connect('ws://' + zoneURL);
+    exports.client.messaging.connect('ws://' + zoneURL);
 }
 
-},{"./chat":11,"./client":12,"./messaging":14,"./text":15,"./utility":16,"./youtube":17,"blitsy":8}],14:[function(require,module,exports){
+},{"./chat":11,"./client":12,"./text":15,"./utility":16,"./youtube":17,"blitsy":8}],14:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utility_1 = require("./utility");
