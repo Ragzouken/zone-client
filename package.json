@@ -13,9 +13,9 @@
     "test": "jest --config jestconfig.json",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "tslint -p tsconfig.json",
-
     "publish:check": "npm run lint && npm run test",
-    "publish": "npm run build && npm run publish:check && neocities upload -d zone ./dist/*"
+    "publish:upload": "neocities upload -d zone ./dist/*",
+    "publish": "npm run publish:check && npm run build && npm run publish:upload"
   },
   "repository": {
     "type": "git",
@@ -35,6 +35,7 @@
     "@types/node": "^13.13.2",
     "browserify-shim": "^3.8.14",
     "jest": "^25.3.0",
+    "jest-canvas-mock": "^2.2.0",
     "prettier": "^2.0.4",
     "ts-jest": "^25.4.0",
     "tsify": "^4.0.1",
