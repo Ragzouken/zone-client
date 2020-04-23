@@ -13,7 +13,7 @@ import {
 import { scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube, YoutubePlayer } from './youtube';
 import { ChatPanel, animatePage } from './chat';
-import { UserId, ZoneClient } from './client';
+import { UserId, ZoneClient, UserState } from './client';
 
 export const client = new ZoneClient();
 
@@ -206,9 +206,8 @@ async function load() {
     });
 
     client.messaging.setHandler('users', (message) => {
-        message.names.forEach(([user, name]: [UserId, string]) => {
-            client.zone.getUser(user).name = name;
-        });
+        client.zone.users.clear();
+        message.users.forEach((user: UserState) => client.zone.users.set(user.userId, user));
         listUsers();
     });
 
@@ -300,9 +299,10 @@ async function load() {
         if (client.zone.users.size === 0) {
             chat.log('{clr=#FF00FF}! no other users');
         } else {
-            const names = Array.from(client.zone.users.values()).map((user) => getUsername(user.userId));
+            const named = Array.from(client.zone.users.values()).filter(user => !!user.name);
+            const names = named.map(user => user.name);
             chat.log(
-                `{clr=#FF00FF}! ${client.zone.users.size} users: {clr=#FF0000}${names.join(
+                `{clr=#FF00FF}! ${names.length} users: {clr=#FF0000}${names.join(
                     '{clr=#FF00FF}, {clr=#FF0000}',
                 )}`,
             );

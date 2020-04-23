@@ -1060,9 +1060,8 @@ async function load() {
         queue = queue.filter((video) => video.videoId !== videoId);
     });
     exports.client.messaging.setHandler('users', (message) => {
-        message.names.forEach(([user, name]) => {
-            exports.client.zone.getUser(user).name = name;
-        });
+        exports.client.zone.users.clear();
+        message.users.forEach((user) => exports.client.zone.users.set(user.userId, user));
         listUsers();
     });
     exports.client.messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
@@ -1146,8 +1145,9 @@ async function load() {
             chat.log('{clr=#FF00FF}! no other users');
         }
         else {
-            const names = Array.from(exports.client.zone.users.values()).map((user) => getUsername(user.userId));
-            chat.log(`{clr=#FF00FF}! ${exports.client.zone.users.size} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+            const named = Array.from(exports.client.zone.users.values()).filter(user => !!user.name);
+            const names = named.map(user => user.name);
+            chat.log(`{clr=#FF00FF}! ${names.length} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
         }
     }
     const help = [
@@ -1847,11 +1847,21 @@ class YoutubePlayer extends events_1.EventEmitter {
         this.retries = 0;
         this.player.addEventListener('onError', async (e) => this.onError(e));
     }
-    get video() { return this.currentVideo; }
-    get time() { return this.player.getCurrentTime(); }
-    get duration() { return this.player.getDuration(); }
-    get volume() { return this.player.getVolume(); }
-    set volume(value) { this.player.setVolume(value * 100); }
+    get video() {
+        return this.currentVideo;
+    }
+    get time() {
+        return this.player.getCurrentTime();
+    }
+    get duration() {
+        return this.player.getDuration();
+    }
+    get volume() {
+        return this.player.getVolume();
+    }
+    set volume(value) {
+        this.player.setVolume(value * 100);
+    }
     get playing() {
         return this.player.getPlayerState() === 1;
     }
