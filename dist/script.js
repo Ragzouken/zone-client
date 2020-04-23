@@ -1145,8 +1145,8 @@ async function load() {
             chat.log('{clr=#FF00FF}! no other users');
         }
         else {
-            const named = Array.from(exports.client.zone.users.values()).filter(user => !!user.name);
-            const names = named.map(user => user.name);
+            const named = Array.from(exports.client.zone.users.values()).filter((user) => !!user.name);
+            const names = named.map((user) => user.name);
             chat.log(`{clr=#FF00FF}! ${names.length} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
         }
     }
