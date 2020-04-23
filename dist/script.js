@@ -1141,13 +1141,14 @@ async function load() {
         }
     }
     function listUsers() {
-        if (exports.client.zone.users.size === 0) {
+        const named = Array.from(exports.client.zone.users.values()).filter((user) => !!user.name);
+        if (named.length === 0) {
             chat.log('{clr=#FF00FF}! no other users');
         }
         else {
-            const named = Array.from(exports.client.zone.users.values()).filter((user) => !!user.name);
             const names = named.map((user) => user.name);
-            chat.log(`{clr=#FF00FF}! ${names.length} users: {clr=#FF0000}${names.join('{clr=#FF00FF}, {clr=#FF0000}')}`);
+            const line = names.join('{clr=#FF00FF}, {clr=#FF0000}');
+            chat.log(`{clr=#FF00FF}! ${names.length} users: {clr=#FF0000}${line}`);
         }
     }
     const help = [
