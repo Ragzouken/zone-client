@@ -104,6 +104,19 @@ function decodeBase64(data: string) {
     return blitsy.decodeTexture(texture);
 }
 
+function getTile(base64: string): CanvasRenderingContext2D | undefined {
+    let tile = avatarTiles.get(base64);
+    if (!tile) {
+        try {
+            tile = decodeBase64(base64);
+            avatarTiles.set(base64, tile);
+        } catch (e) {
+            console.log('fucked up avatar', base64);
+        }
+    }
+    return tile;
+}
+
 const recolorBuffer = blitsy.createContext2D(8, 8);
 
 function recolored(tile: CanvasRenderingContext2D, color: number) {
@@ -207,13 +220,17 @@ async function load() {
 
     client.messaging.setHandler('users', (message) => {
         client.zone.users.clear();
-        message.users.forEach((user: UserState) => client.zone.users.set(user.userId, user));
+        message.users.forEach((user: UserState) => {
+            client.zone.users.set(user.userId, user);
+        });
         listUsers();
     });
 
     client.messaging.setHandler('leave', (message) => client.zone.users.delete(message.userId));
     client.messaging.setHandler('move', (message) => {
-        client.zone.getUser(message.userId).position = message.position;
+        const user = client.zone.getUser(message.userId);
+
+        if (user !== client.localUser || !user.position) user.position = message.position;
     });
     client.messaging.setHandler('avatar', (message) => {
         client.zone.getUser(message.userId).avatar = message.data;
@@ -452,7 +469,7 @@ async function load() {
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
 
-            let image = avatarTiles.get(avatar) || avatarImage;
+            let image = getTile(avatar || '') || avatarImage;
 
             if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));

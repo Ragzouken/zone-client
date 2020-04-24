@@ -979,6 +979,19 @@ function decodeBase64(data) {
     };
     return blitsy.decodeTexture(texture);
 }
+function getTile(base64) {
+    let tile = avatarTiles.get(base64);
+    if (!tile) {
+        try {
+            tile = decodeBase64(base64);
+            avatarTiles.set(base64, tile);
+        }
+        catch (e) {
+            console.log('fucked up avatar', base64);
+        }
+    }
+    return tile;
+}
 const recolorBuffer = blitsy.createContext2D(8, 8);
 function recolored(tile, color) {
     recolorBuffer.clearRect(0, 0, 8, 8);
@@ -1061,12 +1074,16 @@ async function load() {
     });
     exports.client.messaging.setHandler('users', (message) => {
         exports.client.zone.users.clear();
-        message.users.forEach((user) => exports.client.zone.users.set(user.userId, user));
+        message.users.forEach((user) => {
+            exports.client.zone.users.set(user.userId, user);
+        });
         listUsers();
     });
     exports.client.messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
     exports.client.messaging.setHandler('move', (message) => {
-        exports.client.zone.getUser(message.userId).position = message.position;
+        const user = exports.client.zone.getUser(message.userId);
+        if (user !== exports.client.localUser || !user.position)
+            user.position = message.position;
     });
     exports.client.messaging.setHandler('avatar', (message) => {
         exports.client.zone.getUser(message.userId).avatar = message.data;
@@ -1282,7 +1299,7 @@ async function load() {
             let [r, g, b] = [255, 255, 255];
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
-            let image = avatarTiles.get(avatar) || avatarImage;
+            let image = getTile(avatar || '') || avatarImage;
             if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
