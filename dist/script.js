@@ -1299,7 +1299,7 @@ async function load() {
             let [r, g, b] = [255, 255, 255];
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
-            let image = getTile(avatar || '') || avatarImage;
+            let image = avatar ? getTile(avatar) || avatarImage : avatarImage;
             if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
                 [r, g, b] = utility_1.hslToRgb(h, 1, 0.5);
