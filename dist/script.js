@@ -1175,7 +1175,7 @@ async function load() {
         '/search query terms',
         '/lucky search terms',
         '/skip',
-        '/avatar binary as base64',
+        '/avatar',
         '/users',
         '/name',
         '/notify',
@@ -1205,20 +1205,19 @@ async function load() {
         avatarContext.drawImage(avatar.canvas, 0, 0);
         avatarPanel.hidden = false;
     }
-    avatarPaint.addEventListener('pointerdown', event => {
-        const scaling = (8 / avatarPaint.clientWidth);
+    avatarPaint.addEventListener('pointerdown', (event) => {
+        const scaling = 8 / avatarPaint.clientWidth;
         const [cx, cy] = utility_1.eventToElementPixel(event, avatarPaint);
         const [px, py] = [Math.floor(cx * scaling), Math.floor(cy * scaling)];
-        console.log(cx, avatarPaint.clientWidth, scaling, px);
-        utility_1.withPixels(avatarContext, pixels => {
-            pixels[py * 8 + px] = 0xFFFFFFFF - pixels[py * 8 + px];
+        utility_1.withPixels(avatarContext, (pixels) => {
+            pixels[py * 8 + px] = 0xffffffff - pixels[py * 8 + px];
         });
     });
     avatarUpdate.addEventListener('click', () => {
         const data = blitsy.encodeTexture(avatarContext, 'M1').data;
         exports.client.messaging.send('avatar', { data });
     });
-    avatarCancel.addEventListener('click', () => avatarPanel.hidden = true);
+    avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
     const chatCommands = new Map();
     chatCommands.set('search', (args) => exports.client.messaging.send('search', { query: args }));
     chatCommands.set('youtube', (args) => exports.client.messaging.send('youtube', { videoId: args }));

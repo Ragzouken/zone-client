@@ -1,6 +1,13 @@
 [hidden] { display: none !important; }
 * { box-sizing: border-box; }
 
+canvas {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -113,7 +120,6 @@ body {
 
 #avatar-paint {
     width: 128px; height: 128px;
-    image-rendering: pixelated;
 }
 
 #insert {
