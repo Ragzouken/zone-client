@@ -1020,14 +1020,18 @@ function setVolume(volume) {
     player.volume = volume;
     localStorage.setItem('volume', volume.toString());
 }
+let localName = localStorage.getItem('name') || '';
+function rename(name) {
+    localStorage.setItem('name', name);
+    localName = name;
+    exports.client.messaging.send('name', { name });
+}
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
     const youtube = document.querySelector('#youtube');
     const joinName = document.querySelector('#join-name');
-    const chatName = document.querySelector('#chat-name');
     const chatInput = document.querySelector('#chat-input');
-    chatName.value = localStorage.getItem('name') || '';
-    joinName.value = chatName.value;
+    joinName.value = localName;
     let queue = [];
     let currentVideoMessage;
     function getUsername(userId) {
@@ -1048,9 +1052,7 @@ async function load() {
             }
         }
         exports.client.localUserId = message.userId;
-        // send name
-        if (chatName.value.length > 0)
-            exports.client.messaging.send('name', { name: chatName.value });
+        rename(localName);
         queue.length = 0;
         exports.client.zone.reset();
     });
@@ -1135,11 +1137,6 @@ async function load() {
     setInterval(() => exports.client.messaging.send('heartbeat', {}), 30 * 1000);
     window.onbeforeunload = () => exports.client.messaging.disconnect();
     player.on('error', () => exports.client.messaging.send('error', { videoId: player.video }));
-    chatName.addEventListener('change', () => {
-        localStorage.setItem('name', chatName.value);
-        if (exports.client.localUserId)
-            exports.client.messaging.send('name', { name: chatName.value });
-    });
     function move(dx, dy) {
         const user = exports.client.localUser;
         if (user.position) {
@@ -1178,6 +1175,7 @@ async function load() {
         '/skip',
         '/avatar binary as base64',
         '/users',
+        '/name',
         '/notify',
         '/volume 100',
         '/resync',
@@ -1219,6 +1217,7 @@ async function load() {
         const permission = await Notification.requestPermission();
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
+    chatCommands.set('name', rename);
     function toggleEmote(emote) {
         const emotes = exports.client.localUser.emotes;
         if (emotes.includes(emote))
@@ -1281,9 +1280,10 @@ async function load() {
     const pageRenderer = new text_1.PageRenderer(256, 256);
     const zoneLogo = document.querySelector('#zone-logo');
     function drawZone() {
+        var _a;
         sceneContext.clearRect(0, 0, 512, 512);
         sceneContext.drawImage(roomBackground.canvas, 0, 0, 512, 512);
-        exports.client.zone.users.forEach((user, userId) => {
+        exports.client.zone.users.forEach((user) => {
             const { position, emotes, avatar } = user;
             if (!position)
                 return;
@@ -1307,6 +1307,13 @@ async function load() {
             }
             sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
+        const state = (_a = exports.client.messaging.websocket) === null || _a === void 0 ? void 0 : _a.readyState;
+        if (state !== WebSocket.OPEN) {
+            const status = text_1.scriptToPages('connecting...', layout)[0];
+            chat_1.animatePage(status);
+            pageRenderer.renderPage(status, 0, 0);
+            sceneContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
+        }
     }
     function drawQueue() {
         const lines = [];
@@ -1361,7 +1368,6 @@ function setupEntrySplash() {
 }
 function enter() {
     const joinName = document.querySelector('#join-name').value;
-    document.querySelector('#chat-name').value = joinName;
     localStorage.setItem('name', joinName);
     const urlparams = new URLSearchParams(window.location.search);
     const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';

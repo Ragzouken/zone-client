@@ -152,16 +152,22 @@ function setVolume(volume: number) {
     localStorage.setItem('volume', volume.toString());
 }
 
+let localName = localStorage.getItem('name') || '';
+
+function rename(name: string) {
+    localStorage.setItem('name', name);
+    localName = name;
+    client.messaging.send('name', { name });
+}
+
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
 
     const youtube = document.querySelector('#youtube') as HTMLElement;
     const joinName = document.querySelector('#join-name') as HTMLInputElement;
-    const chatName = document.querySelector('#chat-name') as HTMLInputElement;
     const chatInput = document.querySelector('#chat-input') as HTMLInputElement;
 
-    chatName.value = localStorage.getItem('name') || '';
-    joinName.value = chatName.value;
+    joinName.value = localName;
 
     let queue: YoutubeVideo[] = [];
     let currentVideoMessage: YoutubeVideo | undefined;
@@ -188,8 +194,7 @@ async function load() {
         }
 
         client.localUserId = message.userId;
-        // send name
-        if (chatName.value.length > 0) client.messaging.send('name', { name: chatName.value });
+        rename(localName);
 
         queue.length = 0;
         client.zone.reset();
@@ -288,11 +293,6 @@ async function load() {
 
     player!.on('error', () => client.messaging.send('error', { videoId: player!.video }));
 
-    chatName.addEventListener('change', () => {
-        localStorage.setItem('name', chatName.value);
-        if (client.localUserId) client.messaging.send('name', { name: chatName.value });
-    });
-
     function move(dx: number, dy: number) {
         const user = client.localUser;
 
@@ -334,6 +334,7 @@ async function load() {
         '/skip',
         '/avatar binary as base64',
         '/users',
+        '/name',
         '/notify',
         '/volume 100',
         '/resync',
@@ -377,6 +378,7 @@ async function load() {
         const permission = await Notification.requestPermission();
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
+    chatCommands.set('name', rename);
 
     function toggleEmote(emote: string) {
         const emotes = client.localUser.emotes;
@@ -448,7 +450,7 @@ async function load() {
         sceneContext.clearRect(0, 0, 512, 512);
         sceneContext.drawImage(roomBackground.canvas, 0, 0, 512, 512);
 
-        client.zone.users.forEach((user, userId) => {
+        client.zone.users.forEach((user) => {
             const { position, emotes, avatar } = user;
             if (!position) return;
 
@@ -479,6 +481,15 @@ async function load() {
 
             sceneContext.drawImage(image.canvas, x, y, 32, 32);
         });
+
+        const state = client.messaging.websocket?.readyState;
+
+        if (state !== WebSocket.OPEN) {
+            const status = scriptToPages('connecting...', layout)[0];
+            animatePage(status);
+            pageRenderer.renderPage(status, 0, 0);
+            sceneContext.drawImage(pageRenderer.pageImage, 16, 16, 512, 512);
+        }
     }
 
     function drawQueue() {
@@ -547,7 +558,6 @@ function setupEntrySplash() {
 
 function enter() {
     const joinName = (document.querySelector('#join-name') as HTMLInputElement).value;
-    (document.querySelector('#chat-name') as HTMLInputElement).value = joinName;
     localStorage.setItem('name', joinName);
     const urlparams = new URLSearchParams(window.location.search);
     const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
