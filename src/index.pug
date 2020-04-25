@@ -14,6 +14,11 @@ html
                     span youtube has not loaded
                 #youtube
             canvas#scene-canvas(width=512, height=512)
+            #avatar-panel(hidden)
+                canvas#avatar-paint(width=8, height=8)
+                .controls
+                    button#avatar-update update
+                    button#avatar-cancel cancel
         canvas#chat-canvas(width=512, height=512)
         #chat-inputs
             input#chat-input(type="text", placeholder="chat message...", maxlength="160")

@@ -81,6 +81,41 @@ body {
     height: 512px;
 }
 
+#avatar-panel {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 8px;
+
+    background: black;
+}
+
+#avatar-panel > *:not(:first-child) {
+    margin-top: 8px;
+}
+
+#avatar-panel > .controls {
+    display: flex;
+    flex: 1;
+}
+
+.controls > button {
+    flex: 1;
+}
+
+.controls > button:not(:first-child) {
+    margin-left: 8px;
+}
+
+#avatar-paint {
+    width: 128px; height: 128px;
+    image-rendering: pixelated;
+}
+
 #insert {
     position: absolute;
     left: 32px; top: 32px;

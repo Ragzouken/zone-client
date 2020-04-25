@@ -124,3 +124,8 @@ export function getDefault<K, V>(map: Map<K, V>, key: K, factory: (key: K) => V)
     }
     return value!;
 }
+
+export function eventToElementPixel(event: PointerEvent, element: HTMLElement) {
+    const rect = element.getBoundingClientRect();
+    return [event.clientX - rect.x, event.clientY - rect.y];
+}

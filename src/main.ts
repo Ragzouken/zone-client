@@ -9,6 +9,8 @@ import {
     randomInt,
     secondsToTime,
     fakedownToTag,
+    eventToElementPixel,
+    withPixels,
 } from './utility';
 import { scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube, YoutubePlayer } from './youtube';
@@ -104,7 +106,8 @@ function decodeBase64(data: string) {
     return blitsy.decodeTexture(texture);
 }
 
-function getTile(base64: string): CanvasRenderingContext2D | undefined {
+function getTile(base64: string | undefined): CanvasRenderingContext2D | undefined {
+    if (!base64) return;
     let tile = avatarTiles.get(base64);
     if (!tile) {
         try {
@@ -332,7 +335,7 @@ async function load() {
         '/search query terms',
         '/lucky search terms',
         '/skip',
-        '/avatar binary as base64',
+        '/avatar',
         '/users',
         '/name',
         '/notify',
@@ -353,6 +356,34 @@ async function load() {
         else client.messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
     }
 
+    const avatarPanel = document.querySelector('#avatar-panel') as HTMLElement;
+    const avatarPaint = document.querySelector('#avatar-paint') as HTMLCanvasElement;
+    const avatarUpdate = document.querySelector('#avatar-update') as HTMLButtonElement;
+    const avatarCancel = document.querySelector('#avatar-cancel') as HTMLButtonElement;
+    const avatarContext = avatarPaint.getContext('2d')!;
+
+    function openAvatarEditor() {
+        const avatar = getTile(client.localUser.avatar) || avatarImage;
+        avatarContext.clearRect(0, 0, 8, 8);
+        avatarContext.drawImage(avatar.canvas, 0, 0);
+        avatarPanel.hidden = false;
+    }
+
+    avatarPaint.addEventListener('pointerdown', (event) => {
+        const scaling = 8 / avatarPaint.clientWidth;
+        const [cx, cy] = eventToElementPixel(event, avatarPaint);
+        const [px, py] = [Math.floor(cx * scaling), Math.floor(cy * scaling)];
+        withPixels(avatarContext, (pixels) => {
+            pixels[py * 8 + px] = 0xffffffff - pixels[py * 8 + px];
+        });
+    });
+
+    avatarUpdate.addEventListener('click', () => {
+        const data = blitsy.encodeTexture(avatarContext, 'M1').data;
+        client.messaging.send('avatar', { data });
+    });
+    avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
+
     const chatCommands = new Map<string, (args: string) => void>();
     chatCommands.set('search', (args) => client.messaging.send('search', { query: args }));
     chatCommands.set('youtube', (args) => client.messaging.send('youtube', { videoId: args }));
@@ -365,7 +396,13 @@ async function load() {
     chatCommands.set('result', playFromSearchResult);
     chatCommands.set('lucky', (args) => client.messaging.send('search', { query: args, lucky: true }));
     chatCommands.set('reboot', (args) => client.messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => client.messaging.send('avatar', { data: args }));
+    chatCommands.set('avatar', (args) => {
+        if (args.trim().length === 0) {
+            openAvatarEditor();
+        } else {
+            client.messaging.send('avatar', { data: args });
+        }
+    });
     chatCommands.set('avatar2', (args) => {
         const ascii = args.replace(/\s+/g, '\n');
         const avatar = blitsy.decodeAsciiTexture(ascii, '1');
@@ -471,7 +508,7 @@ async function load() {
             const x = position[0] * 32 + dx;
             const y = position[1] * 32 + dy;
 
-            let image = avatar ? getTile(avatar) || avatarImage : avatarImage;
+            let image = getTile(avatar) || avatarImage;
 
             if (emotes && emotes.includes('rbw')) {
                 const h = Math.abs(Math.sin(performance.now() / 600 - position[0] / 8));
