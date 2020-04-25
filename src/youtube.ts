@@ -25,7 +25,7 @@ export class YoutubePlayer extends EventEmitter {
     constructor(public readonly player: any) {
         super();
 
-        this.player.addEventListener('onError', async (e: any) => this.onError(e));
+        this.player.addEventListener('onError', (e: any) => this.onError(e));
     }
 
     public get video() {
@@ -50,7 +50,7 @@ export class YoutubePlayer extends EventEmitter {
 
     public playVideoById(videoId: string, startSeconds = 0) {
         this.retries = 0;
-        this.currentVideo = this.video;
+        this.currentVideo = videoId;
         this.startSeconds = startSeconds;
         this.player.loadVideoById({ videoId, startSeconds });
     }

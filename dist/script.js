@@ -1863,7 +1863,7 @@ class YoutubePlayer extends events_1.EventEmitter {
         this.player = player;
         this.startSeconds = 0;
         this.retries = 0;
-        this.player.addEventListener('onError', async (e) => this.onError(e));
+        this.player.addEventListener('onError', (e) => this.onError(e));
     }
     get video() {
         return this.currentVideo;
@@ -1885,7 +1885,7 @@ class YoutubePlayer extends events_1.EventEmitter {
     }
     playVideoById(videoId, startSeconds = 0) {
         this.retries = 0;
-        this.currentVideo = this.video;
+        this.currentVideo = videoId;
         this.startSeconds = startSeconds;
         this.player.loadVideoById({ videoId, startSeconds });
     }
