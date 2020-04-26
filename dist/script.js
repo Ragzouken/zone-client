@@ -1040,6 +1040,15 @@ async function load() {
         return exports.client.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
+    exports.client.messaging.on('open', async () => {
+        exports.client.messaging.send('join', { name: localName });
+    });
+    exports.client.messaging.on('close', async (code) => {
+        if (code <= 1001)
+            return;
+        await utility_1.sleep(100);
+        exports.client.messaging.reconnect();
+    });
     exports.client.messaging.setHandler('heartbeat', () => { });
     exports.client.messaging.setHandler('assign', (message) => {
         chat.log('{clr=#00FF00}*** connected ***');
@@ -1411,8 +1420,10 @@ function enter() {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utility_1 = require("./utility");
-class WebSocketMessaging {
+const events_1 = require("events");
+class WebSocketMessaging extends events_1.EventEmitter {
     constructor() {
+        super(...arguments);
         this.websocket = undefined;
         this.handlers = new Map();
     }
@@ -1467,21 +1478,15 @@ class WebSocketMessaging {
         }
     }
     onOpen(event) {
-        if (!this.websocket)
-            return;
-        console.log('open:', event, this.websocket.readyState);
+        this.emit('open');
     }
     async onClose(event) {
-        console.log(`closed: ${event.code}, ${event.reason}`, event);
-        if (event.code > 1001) {
-            await utility_1.sleep(100);
-            this.reconnect();
-        }
+        this.emit('close', event.code);
     }
 }
 exports.WebSocketMessaging = WebSocketMessaging;
 
-},{"./utility":16}],15:[function(require,module,exports){
+},{"./utility":16,"events":1}],15:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");

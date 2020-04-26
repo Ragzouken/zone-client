@@ -11,6 +11,7 @@ import {
     fakedownToTag,
     eventToElementPixel,
     withPixels,
+    sleep,
 } from './utility';
 import { scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube, YoutubePlayer } from './youtube';
@@ -180,6 +181,15 @@ async function load() {
     }
 
     let showQueue = false;
+
+    client.messaging.on('open', async () => {
+        client.messaging.send('join', { name: localName });
+    });
+    client.messaging.on('close', async (code) => {
+        if (code <= 1001) return;
+        await sleep(100);
+        client.messaging.reconnect();
+    });
 
     client.messaging.setHandler('heartbeat', () => {});
     client.messaging.setHandler('assign', (message) => {

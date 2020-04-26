@@ -1,6 +1,12 @@
 import { sleep } from './utility';
+import { EventEmitter } from 'events';
 
-export class WebSocketMessaging {
+export declare interface WebSocketMessaging {
+    on(event: 'open', listener: () => void): this;
+    on(event: 'close', listener: (code: number) => void): this;
+}
+
+export class WebSocketMessaging extends EventEmitter {
     public websocket: WebSocket | undefined = undefined;
     private handlers = new Map<string, (message: any) => void>();
 
@@ -57,16 +63,10 @@ export class WebSocketMessaging {
     }
 
     onOpen(event: Event) {
-        if (!this.websocket) return;
-        console.log('open:', event, this.websocket.readyState);
+        this.emit('open');
     }
 
     async onClose(event: CloseEvent) {
-        console.log(`closed: ${event.code}, ${event.reason}`, event);
-
-        if (event.code > 1001) {
-            await sleep(100);
-            this.reconnect();
-        }
+        this.emit('close', event.code);
     }
 }
