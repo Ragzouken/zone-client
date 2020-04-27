@@ -41,7 +41,7 @@ export class YoutubePlayer extends EventEmitter {
         return this.player.getVolume();
     }
     public set volume(value: number) {
-        this.player.setVolume(value * 100);
+        this.player.setVolume(value);
     }
 
     public get playing() {

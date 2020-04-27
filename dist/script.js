@@ -1063,7 +1063,6 @@ async function load() {
             }
         }
         exports.client.localUserId = message.userId;
-        rename(localName);
         queue.length = 0;
         exports.client.zone.reset();
     });
@@ -1437,7 +1436,6 @@ class WebSocketMessaging extends events_1.EventEmitter {
     reconnect() {
         if (!this.websocket)
             return;
-        console.log('reconnecting');
         this.connect(this.websocket.url);
     }
     disconnect() {
@@ -1927,7 +1925,7 @@ class YoutubePlayer extends events_1.EventEmitter {
         return this.player.getVolume();
     }
     set volume(value) {
-        this.player.setVolume(value * 100);
+        this.player.setVolume(value);
     }
     get playing() {
         return this.player.getPlayerState() === 1;

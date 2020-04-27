@@ -20,7 +20,6 @@ export class WebSocketMessaging extends EventEmitter {
 
     reconnect() {
         if (!this.websocket) return;
-        console.log('reconnecting');
         this.connect(this.websocket.url);
     }
 

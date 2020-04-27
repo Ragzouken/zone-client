@@ -207,8 +207,6 @@ async function load() {
         }
 
         client.localUserId = message.userId;
-        rename(localName);
-
         queue.length = 0;
         client.zone.reset();
     });
