@@ -183,7 +183,10 @@ async function load() {
     let showQueue = false;
 
     client.messaging.on('open', async () => {
-        client.messaging.send('join', { name: localName });
+        queue.length = 0;
+        client.zone.reset();
+        chat.log('{clr=#00FF00}*** connected ***');
+        client.messaging.send('join', { name: localName, token: client.localToken });
     });
     client.messaging.on('close', async (code) => {
         if (code <= 1001) return;
@@ -193,9 +196,6 @@ async function load() {
 
     client.messaging.setHandler('heartbeat', () => {});
     client.messaging.setHandler('assign', (message) => {
-        chat.log('{clr=#00FF00}*** connected ***');
-        listHelp();
-
         if (client.localUserId) {
             const user = client.localUser;
 
@@ -204,11 +204,12 @@ async function load() {
                 client.messaging.send('avatar', { data: user.avatar });
                 client.messaging.send('emotes', { emotes: user.emotes });
             }
+        } else {
+            listHelp();
         }
 
         client.localUserId = message.userId;
-        queue.length = 0;
-        client.zone.reset();
+        client.localToken = message.token;
     });
     client.messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
@@ -241,8 +242,11 @@ async function load() {
         });
         listUsers();
     });
-
-    client.messaging.setHandler('leave', (message) => client.zone.users.delete(message.userId));
+    client.messaging.setHandler('leave', (message) => {
+        const username = getUsername(message.userId);
+        chat.log(`{clr=#FF00FF}! {clr=#FF0000}${username}{clr=#FF00FF} left`);
+        client.zone.users.delete(message.userId);
+    });
     client.messaging.setHandler('move', (message) => {
         const user = client.zone.getUser(message.userId);
 
@@ -602,8 +606,8 @@ function setupEntrySplash() {
 }
 
 function enter() {
-    const joinName = (document.querySelector('#join-name') as HTMLInputElement).value;
-    localStorage.setItem('name', joinName);
+    localName = (document.querySelector('#join-name') as HTMLInputElement).value;
+    localStorage.setItem('name', localName);
     const urlparams = new URLSearchParams(window.location.search);
     const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     client.messaging.connect('ws://' + zoneURL);

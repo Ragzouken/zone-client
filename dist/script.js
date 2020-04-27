@@ -1041,7 +1041,10 @@ async function load() {
     }
     let showQueue = false;
     exports.client.messaging.on('open', async () => {
-        exports.client.messaging.send('join', { name: localName });
+        queue.length = 0;
+        exports.client.zone.reset();
+        chat.log('{clr=#00FF00}*** connected ***');
+        exports.client.messaging.send('join', { name: localName, token: exports.client.localToken });
     });
     exports.client.messaging.on('close', async (code) => {
         if (code <= 1001)
@@ -1051,8 +1054,6 @@ async function load() {
     });
     exports.client.messaging.setHandler('heartbeat', () => { });
     exports.client.messaging.setHandler('assign', (message) => {
-        chat.log('{clr=#00FF00}*** connected ***');
-        listHelp();
         if (exports.client.localUserId) {
             const user = exports.client.localUser;
             if (user.position)
@@ -1062,9 +1063,11 @@ async function load() {
                 exports.client.messaging.send('emotes', { emotes: user.emotes });
             }
         }
+        else {
+            listHelp();
+        }
         exports.client.localUserId = message.userId;
-        queue.length = 0;
-        exports.client.zone.reset();
+        exports.client.localToken = message.token;
     });
     exports.client.messaging.setHandler('queue', (message) => {
         if (message.videos.length === 1) {
@@ -1091,7 +1094,11 @@ async function load() {
         });
         listUsers();
     });
-    exports.client.messaging.setHandler('leave', (message) => exports.client.zone.users.delete(message.userId));
+    exports.client.messaging.setHandler('leave', (message) => {
+        const username = getUsername(message.userId);
+        chat.log(`{clr=#FF00FF}! {clr=#FF0000}${username}{clr=#FF00FF} left`);
+        exports.client.zone.users.delete(message.userId);
+    });
     exports.client.messaging.setHandler('move', (message) => {
         const user = exports.client.zone.getUser(message.userId);
         if (user !== exports.client.localUser || !user.position)
@@ -1408,8 +1415,8 @@ function setupEntrySplash() {
     });
 }
 function enter() {
-    const joinName = document.querySelector('#join-name').value;
-    localStorage.setItem('name', joinName);
+    localName = document.querySelector('#join-name').value;
+    localStorage.setItem('name', localName);
     const urlparams = new URLSearchParams(window.location.search);
     const zoneURL = urlparams.get('zone') || 'zone-server.glitch.me/zone';
     exports.client.messaging.connect('ws://' + zoneURL);
