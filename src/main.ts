@@ -181,6 +181,7 @@ async function load() {
     }
 
     let showQueue = false;
+    let remember: UserState | undefined;
 
     client.messaging.on('open', async () => {
         queue.length = 0;
@@ -189,6 +190,7 @@ async function load() {
         client.messaging.send('join', { name: localName, token: client.localToken });
     });
     client.messaging.on('close', async (code) => {
+        remember = client.localUser;
         if (code <= 1001) return;
         await sleep(100);
         client.messaging.reconnect();
@@ -196,13 +198,11 @@ async function load() {
 
     client.messaging.setHandler('heartbeat', () => {});
     client.messaging.setHandler('assign', (message) => {
-        if (client.localUserId) {
-            const user = client.localUser;
-
-            if (user.position) client.messaging.send('move', { position: user.position });
-            if (user.avatar) {
-                client.messaging.send('avatar', { data: user.avatar });
-                client.messaging.send('emotes', { emotes: user.emotes });
+        if (remember) {
+            if (remember.position) client.messaging.send('move', { position: remember.position });
+            if (remember.avatar) {
+                client.messaging.send('avatar', { data: remember.avatar });
+                client.messaging.send('emotes', { emotes: remember.emotes });
             }
         } else {
             listHelp();

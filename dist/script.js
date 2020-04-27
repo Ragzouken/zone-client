@@ -1040,6 +1040,7 @@ async function load() {
         return exports.client.zone.getUser(userId).name || userId;
     }
     let showQueue = false;
+    let remember;
     exports.client.messaging.on('open', async () => {
         queue.length = 0;
         exports.client.zone.reset();
@@ -1047,6 +1048,7 @@ async function load() {
         exports.client.messaging.send('join', { name: localName, token: exports.client.localToken });
     });
     exports.client.messaging.on('close', async (code) => {
+        remember = exports.client.localUser;
         if (code <= 1001)
             return;
         await utility_1.sleep(100);
@@ -1054,13 +1056,12 @@ async function load() {
     });
     exports.client.messaging.setHandler('heartbeat', () => { });
     exports.client.messaging.setHandler('assign', (message) => {
-        if (exports.client.localUserId) {
-            const user = exports.client.localUser;
-            if (user.position)
-                exports.client.messaging.send('move', { position: user.position });
-            if (user.avatar) {
-                exports.client.messaging.send('avatar', { data: user.avatar });
-                exports.client.messaging.send('emotes', { emotes: user.emotes });
+        if (remember) {
+            if (remember.position)
+                exports.client.messaging.send('move', { position: remember.position });
+            if (remember.avatar) {
+                exports.client.messaging.send('avatar', { data: remember.avatar });
+                exports.client.messaging.send('emotes', { emotes: remember.emotes });
             }
         }
         else {
