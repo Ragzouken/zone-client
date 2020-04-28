@@ -1045,7 +1045,7 @@ async function load() {
         queue.length = 0;
         exports.client.zone.reset();
         chat.log('{clr=#00FF00}*** connected ***');
-        exports.client.messaging.send('join', { name: localName, token: exports.client.localToken });
+        exports.client.messaging.send('join', { name: localName, token: exports.client.localToken, password: exports.client.joinPassword });
     });
     exports.client.messaging.on('close', async (code) => {
         remember = exports.client.localUser;
@@ -1053,6 +1053,9 @@ async function load() {
             return;
         await utility_1.sleep(100);
         exports.client.messaging.reconnect();
+    });
+    exports.client.messaging.setHandler('reject', () => {
+        chat.log("{clr=#FF00FF}! enter server password with /password)");
     });
     exports.client.messaging.setHandler('heartbeat', () => { });
     exports.client.messaging.setHandler('assign', (message) => {
@@ -1241,6 +1244,7 @@ async function load() {
         if (currentVideoMessage)
             exports.client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
     });
+    chatCommands.set('password', (args) => exports.client.joinPassword = args);
     chatCommands.set('users', (args) => listUsers());
     chatCommands.set('help', (args) => listHelp());
     chatCommands.set('result', playFromSearchResult);

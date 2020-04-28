@@ -33,4 +33,5 @@ export class ZoneClient {
 
     public localUserId: UserId | undefined;
     public localToken: string | undefined;
+    public joinPassword: string | undefined;
 }
