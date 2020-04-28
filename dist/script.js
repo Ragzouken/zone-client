@@ -1044,7 +1044,6 @@ async function load() {
     exports.client.messaging.on('open', async () => {
         queue.length = 0;
         exports.client.zone.reset();
-        chat.log('{clr=#00FF00}*** connected ***');
         exports.client.messaging.send('join', { name: localName, token: exports.client.localToken, password: exports.client.joinPassword });
     });
     exports.client.messaging.on('close', async (code) => {
@@ -1055,7 +1054,7 @@ async function load() {
         exports.client.messaging.reconnect();
     });
     exports.client.messaging.setHandler('reject', () => {
-        chat.log("{clr=#FF00FF}! enter server password with /password)");
+        chat.log('{clr=#FF00FF}! enter server password with /password)');
     });
     exports.client.messaging.setHandler('heartbeat', () => { });
     exports.client.messaging.setHandler('assign', (message) => {
@@ -1066,9 +1065,6 @@ async function load() {
                 exports.client.messaging.send('avatar', { data: remember.avatar });
                 exports.client.messaging.send('emotes', { emotes: remember.emotes });
             }
-        }
-        else {
-            listHelp();
         }
         exports.client.localUserId = message.userId;
         exports.client.localToken = message.token;
@@ -1092,6 +1088,9 @@ async function load() {
         queue = queue.filter((video) => video.videoId !== videoId);
     });
     exports.client.messaging.setHandler('users', (message) => {
+        chat.log('{clr=#00FF00}*** connected ***');
+        if (!remember)
+            listHelp();
         exports.client.zone.users.clear();
         message.users.forEach((user) => {
             exports.client.zone.users.set(user.userId, user);
@@ -1244,7 +1243,7 @@ async function load() {
         if (currentVideoMessage)
             exports.client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
     });
-    chatCommands.set('password', (args) => exports.client.joinPassword = args);
+    chatCommands.set('password', (args) => (exports.client.joinPassword = args));
     chatCommands.set('users', (args) => listUsers());
     chatCommands.set('help', (args) => listHelp());
     chatCommands.set('result', playFromSearchResult);

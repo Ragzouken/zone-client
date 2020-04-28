@@ -186,7 +186,6 @@ async function load() {
     client.messaging.on('open', async () => {
         queue.length = 0;
         client.zone.reset();
-        chat.log('{clr=#00FF00}*** connected ***');
         client.messaging.send('join', { name: localName, token: client.localToken, password: client.joinPassword });
     });
     client.messaging.on('close', async (code) => {
@@ -207,8 +206,6 @@ async function load() {
                 client.messaging.send('avatar', { data: remember.avatar });
                 client.messaging.send('emotes', { emotes: remember.emotes });
             }
-        } else {
-            listHelp();
         }
 
         client.localUserId = message.userId;
@@ -239,6 +236,9 @@ async function load() {
     });
 
     client.messaging.setHandler('users', (message) => {
+        chat.log('{clr=#00FF00}*** connected ***');
+        if (!remember) listHelp();
+
         client.zone.users.clear();
         message.users.forEach((user: UserState) => {
             client.zone.users.set(user.userId, user);
