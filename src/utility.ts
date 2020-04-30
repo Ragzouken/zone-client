@@ -1,14 +1,19 @@
 import { rgbaToColor } from 'blitsy';
+import { UserId } from './client';
 
-export type YoutubeVideo = {
-    videoId: string;
-    duration: number;
+export type PlayableSource = { type: string };
+export interface PlayableMetadata {
     title: string;
-    thumbnail?: string;
-    meta?: any;
-    time?: number;
-};
+    duration: number;
+}
+export interface PlayableMedia<TSource extends PlayableSource = PlayableSource> {
+    source: TSource;
+    details: PlayableMetadata;
+}
+export type QueueInfo = { userId: UserId };
+export type QueueItem = { media: PlayableMedia, info: QueueInfo };
 
+export const objEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 export const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const clamp = (min: number, max: number, value: number) => Math.max(min, Math.min(max, value));
@@ -20,7 +25,7 @@ export function fakedownToTag(text: string, fd: string, tag: string) {
 
 const pad2 = (part: number) => (part.toString().length >= 2 ? part.toString() : '0' + part.toString());
 export function secondsToTime(seconds: number) {
-    const s = seconds % 60;
+    const s = Math.floor(seconds % 60);
     const m = Math.floor(seconds / 60) % 60;
     const h = Math.floor(seconds / 3600);
 
