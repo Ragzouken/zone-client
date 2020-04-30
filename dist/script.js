@@ -1077,7 +1077,9 @@ async function load() {
             const time = utility_1.secondsToTime(duration / 1000);
             chat.log(`{clr=#00FFFF}+ ${title} (${time}) added by {clr=#FF0000}${username}`);
         }
+        console.log('items:', message.items);
         queue.push(...message.items);
+        console.log('queue:', queue);
     });
     exports.client.messaging.setHandler('play', (message) => {
         if (!message.item) {
@@ -1085,8 +1087,8 @@ async function load() {
             return;
         }
         const { source, details } = message.item.media;
-        chat.log(`{clr=#00FFFF}> ${details.title} (${utility_1.secondsToTime(details.duration)})`);
-        queue = queue.filter((item) => utility_1.objEqual(item.media.source, source));
+        chat.log(`{clr=#00FFFF}> ${details.title} (${utility_1.secondsToTime(details.duration / 1000)})`);
+        queue = queue.filter((item) => !utility_1.objEqual(item.media.source, source));
         const time = message.time || 0;
         if (source.type === 'youtube') {
             player.playVideoById(source.videoId, time / 1000);
@@ -1248,24 +1250,24 @@ async function load() {
     });
     avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
     const chatCommands = new Map();
-    chatCommands.set('search', (args) => exports.client.messaging.send('search', { query: args }));
-    chatCommands.set('youtube', (args) => exports.client.messaging.send('youtube', { videoId: args }));
-    chatCommands.set('skip', (args) => {
+    chatCommands.set('search', (query) => exports.client.messaging.send('search', { query }));
+    chatCommands.set('youtube', (videoId) => exports.client.messaging.send('youtube', { videoId }));
+    chatCommands.set('skip', (password) => {
         if (currentPlayMessage)
-            exports.client.messaging.send('skip', { password: args, source: currentPlayMessage.item.media.source });
+            exports.client.messaging.send('skip', { password, source: currentPlayMessage.item.media.source });
     });
     chatCommands.set('password', (args) => (exports.client.joinPassword = args));
-    chatCommands.set('users', (args) => listUsers());
-    chatCommands.set('help', (args) => listHelp());
+    chatCommands.set('users', () => listUsers());
+    chatCommands.set('help', () => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', (args) => exports.client.messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', (args) => exports.client.messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => {
-        if (args.trim().length === 0) {
+    chatCommands.set('lucky', (query) => exports.client.messaging.send('search', { query, lucky: true }));
+    chatCommands.set('reboot', (password) => exports.client.messaging.send('reboot', { password }));
+    chatCommands.set('avatar', (data) => {
+        if (data.trim().length === 0) {
             openAvatarEditor();
         }
         else {
-            exports.client.messaging.send('avatar', { data: args });
+            exports.client.messaging.send('avatar', { data });
         }
     });
     chatCommands.set('avatar2', (args) => {
@@ -1281,6 +1283,7 @@ async function load() {
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     chatCommands.set('name', rename);
+    chatCommands.set('archive', (path) => exports.client.messaging.send('archive', { path }));
     function toggleEmote(emote) {
         const emotes = exports.client.localUser.emotes;
         if (emotes.includes(emote))
@@ -1392,7 +1395,8 @@ async function load() {
             line(currentPlayMessage.item.media.details.title, remaining);
         let total = remaining;
         if (showQueue) {
-            queue.forEach((item, i) => {
+            console.log(queue);
+            queue.forEach((item) => {
                 line(item.media.details.title, item.media.details.duration / 1000);
                 total += item.media.details.duration / 1000;
             });

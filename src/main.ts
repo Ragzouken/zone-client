@@ -231,8 +231,8 @@ async function load() {
             return;
         }
         const { source, details } = message.item.media;
-        chat.log(`{clr=#00FFFF}> ${details.title} (${secondsToTime(details.duration)})`);
-        queue = queue.filter((item) => objEqual(item.media.source, source));
+        chat.log(`{clr=#00FFFF}> ${details.title} (${secondsToTime(details.duration / 1000)})`);
+        queue = queue.filter((item) => !objEqual(item.media.source, source));
 
         const time = message.time || 0;
 
@@ -412,23 +412,23 @@ async function load() {
     avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
 
     const chatCommands = new Map<string, (args: string) => void>();
-    chatCommands.set('search', (args) => client.messaging.send('search', { query: args }));
-    chatCommands.set('youtube', (args) => client.messaging.send('youtube', { videoId: args }));
-    chatCommands.set('skip', (args) => {
+    chatCommands.set('search', (query) => client.messaging.send('search', { query }));
+    chatCommands.set('youtube', (videoId) => client.messaging.send('youtube', { videoId }));
+    chatCommands.set('skip', (password) => {
         if (currentPlayMessage)
-            client.messaging.send('skip', { password: args, source: currentPlayMessage.item.media.source });
+            client.messaging.send('skip', { password, source: currentPlayMessage.item.media.source });
     });
     chatCommands.set('password', (args) => (client.joinPassword = args));
-    chatCommands.set('users', (args) => listUsers());
-    chatCommands.set('help', (args) => listHelp());
+    chatCommands.set('users', () => listUsers());
+    chatCommands.set('help', () => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', (args) => client.messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', (args) => client.messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => {
-        if (args.trim().length === 0) {
+    chatCommands.set('lucky', (query) => client.messaging.send('search', { query, lucky: true }));
+    chatCommands.set('reboot', (password) => client.messaging.send('reboot', { password }));
+    chatCommands.set('avatar', (data) => {
+        if (data.trim().length === 0) {
             openAvatarEditor();
         } else {
-            client.messaging.send('avatar', { data: args });
+            client.messaging.send('avatar', { data });
         }
     });
     chatCommands.set('avatar2', (args) => {
@@ -444,6 +444,7 @@ async function load() {
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     chatCommands.set('name', rename);
+    chatCommands.set('archive', (path) => client.messaging.send('archive', { path }));
 
     function toggleEmote(emote: string) {
         const emotes = client.localUser.emotes;
@@ -573,7 +574,7 @@ async function load() {
         let total = remaining;
 
         if (showQueue) {
-            queue.forEach((item, i) => {
+            queue.forEach((item) => {
                 line(item.media.details.title, item.media.details.duration / 1000);
                 total += item.media.details.duration / 1000;
             });
