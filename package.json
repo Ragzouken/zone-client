@@ -6,7 +6,7 @@
   "scripts": {
     "build:script": "browserify src/main.ts -p [ tsify --noImplicitAny ] -o dist/script.js -s zone",
     "build:html": "pug --pretty src/index.pug -o dist",
-    "build:css": "cp src/style.css dist/style.css",
+    "build:css": "cp-cli src/style.css dist/style.css",
     "build": "npm run build:css && npm run build:html && npm run build:script",
     "prestart": "npm run build",
     "start": "light-server-pug -o -s dist -w \"./src/**/*.pug # npm run build:html\" -w \"./src/**/*.ts # npm run build:script\" -w \"src/**/*.css # npm run build:css # reloadcss\"",
