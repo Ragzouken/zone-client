@@ -48,11 +48,20 @@ export class YoutubePlayer extends EventEmitter {
         return this.player.getPlayerState() === 1;
     }
 
-    public playVideoById(videoId: string, startSeconds = 0) {
+    public playVideoById(videoId: string, startSeconds = 0, forceReload = false) {
         this.retries = 0;
-        this.currentVideo = videoId;
-        this.startSeconds = startSeconds;
-        this.player.loadVideoById({ videoId, startSeconds });
+
+        if (videoId !== this.currentVideo || forceReload) {
+            this.currentVideo = videoId;
+            this.startSeconds = startSeconds;
+            this.player.loadVideoById({ videoId, startSeconds });
+        } else {
+            const delay = Math.abs(startSeconds - this.time);
+            if (delay > .5) {
+                this.startSeconds = startSeconds;
+                this.player.seekTo(startSeconds, true);
+            }
+        }
     }
 
     public stop() {
