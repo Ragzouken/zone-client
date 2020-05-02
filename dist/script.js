@@ -1032,6 +1032,7 @@ async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
     const youtube = document.querySelector('#youtube');
     const archive = document.querySelector('#archive');
+    const httpvideo = document.querySelector('#http-video');
     const joinName = document.querySelector('#join-name');
     const chatInput = document.querySelector('#chat-input');
     joinName.value = localName;
@@ -1083,7 +1084,7 @@ async function load() {
     });
     exports.client.messaging.setHandler('play', (message) => {
         if (!message.item) {
-            archive.src = "";
+            archive.src = '';
             player === null || player === void 0 ? void 0 : player.stop();
             currentPlayMessage = undefined;
             return;
@@ -1097,7 +1098,12 @@ async function load() {
             player.playVideoById(source.videoId, seconds);
         }
         else if (source.type === 'archive') {
-            archive.src = (source.src).replace('download', 'embed') + `?autoplay=1&start=${seconds}`;
+            const corsProxy = 'https://zone-cors.glitch.me';
+            const src = source.src.replace('embed', 'download');
+            httpvideo.src = `${corsProxy}/${src}`;
+            httpvideo.currentTime = seconds;
+            httpvideo.play();
+            // archive.src = ((source as any).src).replace('download', 'embed') + `?autoplay=1&start=${seconds}`;
         }
         else {
             chat.log(`{clr=#FF00FF}! unsupported media type`);
@@ -1402,6 +1408,9 @@ async function load() {
             if (currentPlayMessage.item.media.source.type === 'youtube') {
                 remaining = Math.round(player.duration - player.time);
             }
+            else if (currentPlayMessage.item.media.source.type === 'archive') {
+                remaining = httpvideo.duration - httpvideo.currentTime;
+            }
             else {
                 const duration = currentPlayMessage.item.media.details.duration;
                 const elapsed = performance.now() - currentPlayStart;
@@ -1429,7 +1438,8 @@ async function load() {
     function redraw() {
         const playing = !!currentPlayMessage;
         youtube.hidden = !player.playing;
-        archive.hidden = !playing || (currentPlayMessage === null || currentPlayMessage === void 0 ? void 0 : currentPlayMessage.item.media.source.type) !== "archive";
+        httpvideo.hidden = !playing || (currentPlayMessage === null || currentPlayMessage === void 0 ? void 0 : currentPlayMessage.item.media.source.type) !== 'archive';
+        archive.hidden = true; // !playing || currentPlayMessage?.item.media.source.type !== "archive";
         zoneLogo.hidden = playing;
         drawZone();
         chatContext.fillStyle = 'rgb(0, 0, 0)';
@@ -1984,7 +1994,7 @@ class YoutubePlayer extends events_1.EventEmitter {
         }
         else {
             const delay = Math.abs(startSeconds - this.time);
-            if (delay > .5) {
+            if (delay > 0.5) {
                 this.startSeconds = startSeconds;
                 this.player.seekTo(startSeconds, true);
             }

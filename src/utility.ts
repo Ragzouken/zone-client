@@ -11,7 +11,7 @@ export interface PlayableMedia<TSource extends PlayableSource = PlayableSource> 
     details: PlayableMetadata;
 }
 export type QueueInfo = { userId: UserId };
-export type QueueItem = { media: PlayableMedia, info: QueueInfo };
+export type QueueItem = { media: PlayableMedia; info: QueueInfo };
 
 export const objEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 export const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;

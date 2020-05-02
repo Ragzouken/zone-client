@@ -57,7 +57,7 @@ export class YoutubePlayer extends EventEmitter {
             this.player.loadVideoById({ videoId, startSeconds });
         } else {
             const delay = Math.abs(startSeconds - this.time);
-            if (delay > .5) {
+            if (delay > 0.5) {
                 this.startSeconds = startSeconds;
                 this.player.seekTo(startSeconds, true);
             }
