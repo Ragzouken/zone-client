@@ -1077,9 +1077,7 @@ async function load() {
             const time = utility_1.secondsToTime(duration / 1000);
             chat.log(`{clr=#00FFFF}+ ${title} (${time}) added by {clr=#FF0000}${username}`);
         }
-        console.log('items:', message.items);
         queue.push(...message.items);
-        console.log('queue:', queue);
     });
     exports.client.messaging.setHandler('play', (message) => {
         if (!message.item) {
@@ -1395,7 +1393,6 @@ async function load() {
             line(currentPlayMessage.item.media.details.title, remaining);
         let total = remaining;
         if (showQueue) {
-            console.log(queue);
             queue.forEach((item) => {
                 line(item.media.details.title, item.media.details.duration / 1000);
                 total += item.media.details.duration / 1000;
