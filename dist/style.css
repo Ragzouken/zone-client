@@ -142,7 +142,7 @@ body {
     font-size: 1.5em;
 }
 
-.player {
+#youtube {
     position: absolute;
     width: 100%; height: 100%;
     mix-blend-mode: screen;
