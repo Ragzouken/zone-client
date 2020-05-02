@@ -166,13 +166,14 @@ function rename(name: string) {
     client.messaging.send('name', { name });
 }
 
-type PlayMessage = { item: QueueItem, time?: number };
+type PlayMessage = { item: QueueItem; time?: number };
 
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
 
     const youtube = document.querySelector('#youtube') as HTMLElement;
     const archive = document.querySelector('#archive') as HTMLIFrameElement;
+    const httpvideo = document.querySelector('#http-video') as HTMLVideoElement;
     const joinName = document.querySelector('#join-name') as HTMLInputElement;
     const chatInput = document.querySelector('#chat-input') as HTMLInputElement;
 
@@ -229,7 +230,7 @@ async function load() {
     });
     client.messaging.setHandler('play', (message: PlayMessage) => {
         if (!message.item) {
-            archive.src = "";
+            archive.src = '';
             player?.stop();
             currentPlayMessage = undefined;
             return;
@@ -244,7 +245,12 @@ async function load() {
         if (source.type === 'youtube') {
             player!.playVideoById((source as any).videoId, seconds);
         } else if (source.type === 'archive') {
-            archive.src = ((source as any).src).replace('download', 'embed') + `?autoplay=1&start=${seconds}`;
+            const corsProxy = 'https://zone-cors.glitch.me';
+            const src = (source as any).src.replace('embed', 'download');
+            httpvideo.src = `${corsProxy}/${src}`;
+            httpvideo.currentTime = seconds;
+            httpvideo.play();
+            // archive.src = ((source as any).src).replace('download', 'embed') + `?autoplay=1&start=${seconds}`;
         } else {
             chat.log(`{clr=#FF00FF}! unsupported media type`);
             client.messaging.send('error', { source });
@@ -329,7 +335,7 @@ async function load() {
 
     window.onbeforeunload = () => client.messaging.disconnect();
 
-    player!.on('error', () => client.messaging.send('error', { source: { type: 'youtube', videoId: player!.video }}));
+    player!.on('error', () => client.messaging.send('error', { source: { type: 'youtube', videoId: player!.video } }));
 
     function move(dx: number, dy: number) {
         const user = client.localUser;
@@ -581,6 +587,8 @@ async function load() {
         if (currentPlayMessage) {
             if (currentPlayMessage.item.media.source.type === 'youtube') {
                 remaining = Math.round(player!.duration - player!.time);
+            } else if (currentPlayMessage.item.media.source.type === 'archive') {
+                remaining = httpvideo.duration - httpvideo.currentTime;
             } else {
                 const duration = currentPlayMessage.item.media.details.duration;
                 const elapsed = performance.now() - currentPlayStart!;
@@ -588,8 +596,7 @@ async function load() {
             }
         }
 
-        if (currentPlayMessage && remaining > 0)
-            line(currentPlayMessage.item.media.details.title, remaining);
+        if (currentPlayMessage && remaining > 0) line(currentPlayMessage.item.media.details.title, remaining);
 
         let total = remaining;
 
@@ -614,7 +621,8 @@ async function load() {
     function redraw() {
         const playing = !!currentPlayMessage;
         youtube.hidden = !player!.playing;
-        archive.hidden = !playing || currentPlayMessage?.item.media.source.type !== "archive";
+        httpvideo.hidden = !playing || currentPlayMessage?.item.media.source.type !== 'archive';
+        archive.hidden = true; // !playing || currentPlayMessage?.item.media.source.type !== "archive";
         zoneLogo.hidden = playing;
 
         drawZone();
