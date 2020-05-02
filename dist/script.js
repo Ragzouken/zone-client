@@ -1037,6 +1037,7 @@ async function load() {
     joinName.value = localName;
     let queue = [];
     let currentPlayMessage;
+    let currentPlayStart;
     function getUsername(userId) {
         return exports.client.zone.getUser(userId).name || userId;
     }
@@ -1103,6 +1104,7 @@ async function load() {
             exports.client.messaging.send('error', { source });
         }
         currentPlayMessage = message;
+        currentPlayStart = performance.now() - time;
     });
     exports.client.messaging.setHandler('users', (message) => {
         chat.log('{clr=#00FF00}*** connected ***');
@@ -1395,7 +1397,17 @@ async function load() {
             const cut = title.length < limit ? title.padEnd(limit, ' ') : title.slice(0, limit - 4) + '... ';
             lines.push(cut + time);
         }
-        const remaining = Math.round(player.duration - player.time);
+        let remaining = 0;
+        if (currentPlayMessage) {
+            if (currentPlayMessage.item.media.source.type === 'youtube') {
+                remaining = Math.round(player.duration - player.time);
+            }
+            else {
+                const duration = currentPlayMessage.item.media.details.duration;
+                const elapsed = performance.now() - currentPlayStart;
+                remaining = Math.max(0, duration - elapsed) / 1000;
+            }
+        }
         if (currentPlayMessage && remaining > 0)
             line(currentPlayMessage.item.media.details.title, remaining);
         let total = remaining;
