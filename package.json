@@ -35,6 +35,7 @@
     "@types/node": "^13.13.2",
     "browserify": "^16.5.1",
     "browserify-shim": "^3.8.14",
+    "cp-cli": "^2.0.0",
     "jest": "^25.3.0",
     "jest-canvas-mock": "^2.2.0",
     "prettier": "^2.0.4",

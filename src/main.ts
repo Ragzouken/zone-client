@@ -172,6 +172,7 @@ async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
 
     const youtube = document.querySelector('#youtube') as HTMLElement;
+    const archive = document.querySelector('#archive') as HTMLIFrameElement;
     const joinName = document.querySelector('#join-name') as HTMLInputElement;
     const chatInput = document.querySelector('#chat-input') as HTMLInputElement;
 
@@ -227,7 +228,9 @@ async function load() {
     });
     client.messaging.setHandler('play', (message: PlayMessage) => {
         if (!message.item) {
+            archive.src = "";
             player?.stop();
+            currentPlayMessage = undefined;
             return;
         }
         const { source, details } = message.item.media;
@@ -235,9 +238,12 @@ async function load() {
         queue = queue.filter((item) => !objEqual(item.media.source, source));
 
         const time = message.time || 0;
+        const seconds = time / 1000;
 
         if (source.type === 'youtube') {
-            player!.playVideoById((source as any).videoId, time / 1000);
+            player!.playVideoById((source as any).videoId, seconds);
+        } else if (source.type === 'archive') {
+            archive.src = ((source as any).src).replace('download', 'embed') + `?autoplay=1&start=${seconds}`;
         } else {
             chat.log(`{clr=#FF00FF}! unsupported media type`);
             client.messaging.send('error', { source });
@@ -592,8 +598,10 @@ async function load() {
     }
 
     function redraw() {
+        const playing = !!currentPlayMessage;
         youtube.hidden = !player!.playing;
-        zoneLogo.hidden = player!.playing;
+        archive.hidden = !playing || currentPlayMessage?.item.media.source.type !== "archive";
+        zoneLogo.hidden = playing;
 
         drawZone();
 
