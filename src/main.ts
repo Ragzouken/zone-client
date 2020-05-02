@@ -1,7 +1,6 @@
 import * as blitsy from 'blitsy';
 import {
     num2hex,
-    YoutubeVideo,
     rgb2num,
     recolor,
     hslToRgb,
@@ -12,6 +11,9 @@ import {
     eventToElementPixel,
     withPixels,
     sleep,
+    objEqual,
+    QueueItem,
+    PlayableMedia,
 } from './utility';
 import { scriptToPages, PageRenderer, getPageHeight } from './text';
 import { loadYoutube, YoutubePlayer } from './youtube';
@@ -164,6 +166,8 @@ function rename(name: string) {
     client.messaging.send('name', { name });
 }
 
+type PlayMessage = { item: QueueItem, time?: number };
+
 async function load() {
     setVolume(parseInt(localStorage.getItem('volume') || '100', 10));
 
@@ -173,8 +177,8 @@ async function load() {
 
     joinName.value = localName;
 
-    let queue: YoutubeVideo[] = [];
-    let currentVideoMessage: YoutubeVideo | undefined;
+    let queue: QueueItem[] = [];
+    let currentPlayMessage: PlayMessage | undefined;
 
     function getUsername(userId: UserId) {
         return client.zone.getUser(userId).name || userId;
@@ -211,28 +215,35 @@ async function load() {
         client.localUserId = message.userId;
         client.localToken = message.token;
     });
-    client.messaging.setHandler('queue', (message) => {
-        if (message.videos.length === 1) {
-            const video = message.videos[0];
-            chat.log(
-                `{clr=#00FFFF}+ ${video.title} (${secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(
-                    video.meta.userId,
-                )}`,
-            );
+    client.messaging.setHandler('queue', (message: { items: QueueItem[] }) => {
+        if (message.items.length === 1) {
+            const item = message.items[0];
+            const { title, duration } = item.media.details;
+            const username = getUsername(item.info.userId);
+            const time = secondsToTime(duration / 1000);
+            chat.log(`{clr=#00FFFF}+ ${title} (${time}) added by {clr=#FF0000}${username}`);
         }
-        queue.push(...message.videos);
+        queue.push(...message.items);
     });
-    client.messaging.setHandler('youtube', (message) => {
-        if (!message.videoId) {
-            player!.stop();
+    client.messaging.setHandler('play', (message: PlayMessage) => {
+        if (!message.item) {
+            player?.stop();
             return;
         }
-        const { videoId, title, duration, time } = message;
-        player!.playVideoById(videoId, time / 1000);
-        chat.log(`{clr=#00FFFF}> ${title} (${secondsToTime(duration)})`);
+        const { source, details } = message.item.media;
+        chat.log(`{clr=#00FFFF}> ${details.title} (${secondsToTime(details.duration / 1000)})`);
+        queue = queue.filter((item) => !objEqual(item.media.source, source));
 
-        currentVideoMessage = message;
-        queue = queue.filter((video) => video.videoId !== videoId);
+        const time = message.time || 0;
+
+        if (source.type === 'youtube') {
+            player!.playVideoById((source as any).videoId, time / 1000);
+        } else {
+            chat.log(`{clr=#FF00FF}! unsupported media type`);
+            client.messaging.send('error', { source });
+        }
+
+        currentPlayMessage = message;
     });
 
     client.messaging.setHandler('users', (message) => {
@@ -293,15 +304,16 @@ async function load() {
         client.zone.getUser(message.userId).name = message.name;
     });
 
-    let lastSearchResults: YoutubeVideo[] = [];
+    let lastSearchResults: PlayableMedia[] = [];
 
     client.messaging.setHandler('search', (message) => {
-        const { results }: { results: YoutubeVideo[] } = message;
+        const { results }: { results: PlayableMedia[] } = message;
 
         lastSearchResults = results;
         const lines = results
             .slice(0, 5)
-            .map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration)})`);
+            .map((media) => media.details)
+            .map(({ title, duration }, i) => `${i + 1}. ${title} (${secondsToTime(duration / 1000)})`);
         chat.log('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
 
@@ -309,7 +321,7 @@ async function load() {
 
     window.onbeforeunload = () => client.messaging.disconnect();
 
-    player!.on('error', () => client.messaging.send('error', { videoId: player!.video }));
+    player!.on('error', () => client.messaging.send('error', { source: { type: 'youtube', videoId: player!.video }}));
 
     function move(dx: number, dy: number) {
         const user = client.localUser;
@@ -368,7 +380,7 @@ async function load() {
         if (isNaN(index)) chat.log(`{clr=#FF00FF}! did not understand '${args}' as a number`);
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
             chat.log(`{clr=#FF00FF}! there is no #${index + 1} search result`);
-        else client.messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
+        else client.messaging.send('youtube', { videoId: (lastSearchResults[index].source as any).videoId });
     }
 
     const avatarPanel = document.querySelector('#avatar-panel') as HTMLElement;
@@ -400,23 +412,23 @@ async function load() {
     avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
 
     const chatCommands = new Map<string, (args: string) => void>();
-    chatCommands.set('search', (args) => client.messaging.send('search', { query: args }));
-    chatCommands.set('youtube', (args) => client.messaging.send('youtube', { videoId: args }));
-    chatCommands.set('skip', (args) => {
-        if (currentVideoMessage)
-            client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
+    chatCommands.set('search', (query) => client.messaging.send('search', { query }));
+    chatCommands.set('youtube', (videoId) => client.messaging.send('youtube', { videoId }));
+    chatCommands.set('skip', (password) => {
+        if (currentPlayMessage)
+            client.messaging.send('skip', { password, source: currentPlayMessage.item.media.source });
     });
     chatCommands.set('password', (args) => (client.joinPassword = args));
-    chatCommands.set('users', (args) => listUsers());
-    chatCommands.set('help', (args) => listHelp());
+    chatCommands.set('users', () => listUsers());
+    chatCommands.set('help', () => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', (args) => client.messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', (args) => client.messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => {
-        if (args.trim().length === 0) {
+    chatCommands.set('lucky', (query) => client.messaging.send('search', { query, lucky: true }));
+    chatCommands.set('reboot', (password) => client.messaging.send('reboot', { password }));
+    chatCommands.set('avatar', (data) => {
+        if (data.trim().length === 0) {
             openAvatarEditor();
         } else {
-            client.messaging.send('avatar', { data: args });
+            client.messaging.send('avatar', { data });
         }
     });
     chatCommands.set('avatar2', (args) => {
@@ -432,6 +444,7 @@ async function load() {
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     chatCommands.set('name', rename);
+    chatCommands.set('archive', (path) => client.messaging.send('archive', { path }));
 
     function toggleEmote(emote: string) {
         const emotes = client.localUser.emotes;
@@ -556,14 +569,14 @@ async function load() {
         }
 
         const remaining = Math.round(player!.duration - player!.time);
-        if (currentVideoMessage && remaining > 0) line(currentVideoMessage.title, remaining);
+        if (currentPlayMessage && remaining > 0) line(currentPlayMessage.item.media.details.title, remaining);
 
         let total = remaining;
 
         if (showQueue) {
-            queue.forEach((video, i) => {
-                line(video.title, video.duration);
-                total += video.duration;
+            queue.forEach((item) => {
+                line(item.media.details.title, item.media.details.duration / 1000);
+                total += item.media.details.duration / 1000;
             });
             line('*** END ***', total);
             lines[lines.length - 1] = '{clr=#FF00FF}' + lines[lines.length - 1];

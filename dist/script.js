@@ -1035,7 +1035,7 @@ async function load() {
     const chatInput = document.querySelector('#chat-input');
     joinName.value = localName;
     let queue = [];
-    let currentVideoMessage;
+    let currentPlayMessage;
     function getUsername(userId) {
         return exports.client.zone.getUser(userId).name || userId;
     }
@@ -1070,22 +1070,34 @@ async function load() {
         exports.client.localToken = message.token;
     });
     exports.client.messaging.setHandler('queue', (message) => {
-        if (message.videos.length === 1) {
-            const video = message.videos[0];
-            chat.log(`{clr=#00FFFF}+ ${video.title} (${utility_1.secondsToTime(video.duration)}) added by {clr=#FF0000}${getUsername(video.meta.userId)}`);
+        if (message.items.length === 1) {
+            const item = message.items[0];
+            const { title, duration } = item.media.details;
+            const username = getUsername(item.info.userId);
+            const time = utility_1.secondsToTime(duration / 1000);
+            chat.log(`{clr=#00FFFF}+ ${title} (${time}) added by {clr=#FF0000}${username}`);
         }
-        queue.push(...message.videos);
+        console.log('items:', message.items);
+        queue.push(...message.items);
+        console.log('queue:', queue);
     });
-    exports.client.messaging.setHandler('youtube', (message) => {
-        if (!message.videoId) {
-            player.stop();
+    exports.client.messaging.setHandler('play', (message) => {
+        if (!message.item) {
+            player === null || player === void 0 ? void 0 : player.stop();
             return;
         }
-        const { videoId, title, duration, time } = message;
-        player.playVideoById(videoId, time / 1000);
-        chat.log(`{clr=#00FFFF}> ${title} (${utility_1.secondsToTime(duration)})`);
-        currentVideoMessage = message;
-        queue = queue.filter((video) => video.videoId !== videoId);
+        const { source, details } = message.item.media;
+        chat.log(`{clr=#00FFFF}> ${details.title} (${utility_1.secondsToTime(details.duration / 1000)})`);
+        queue = queue.filter((item) => !utility_1.objEqual(item.media.source, source));
+        const time = message.time || 0;
+        if (source.type === 'youtube') {
+            player.playVideoById(source.videoId, time / 1000);
+        }
+        else {
+            chat.log(`{clr=#FF00FF}! unsupported media type`);
+            exports.client.messaging.send('error', { source });
+        }
+        currentPlayMessage = message;
     });
     exports.client.messaging.setHandler('users', (message) => {
         chat.log('{clr=#00FF00}*** connected ***');
@@ -1151,12 +1163,13 @@ async function load() {
         lastSearchResults = results;
         const lines = results
             .slice(0, 5)
-            .map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration)})`);
+            .map((media) => media.details)
+            .map(({ title, duration }, i) => `${i + 1}. ${title} (${utility_1.secondsToTime(duration / 1000)})`);
         chat.log('{clr=#FFFF00}? queue Search result with /result n\n{clr=#00FFFF}' + lines.join('\n'));
     });
     setInterval(() => exports.client.messaging.send('heartbeat', {}), 30 * 1000);
     window.onbeforeunload = () => exports.client.messaging.disconnect();
-    player.on('error', () => exports.client.messaging.send('error', { videoId: player.video }));
+    player.on('error', () => exports.client.messaging.send('error', { source: { type: 'youtube', videoId: player.video } }));
     function move(dx, dy) {
         const user = exports.client.localUser;
         if (user.position) {
@@ -1210,7 +1223,7 @@ async function load() {
         else if (!lastSearchResults || index < 0 || index >= lastSearchResults.length)
             chat.log(`{clr=#FF00FF}! there is no #${index + 1} search result`);
         else
-            exports.client.messaging.send('youtube', { videoId: lastSearchResults[index].videoId });
+            exports.client.messaging.send('youtube', { videoId: lastSearchResults[index].source.videoId });
     }
     const avatarPanel = document.querySelector('#avatar-panel');
     const avatarPaint = document.querySelector('#avatar-paint');
@@ -1237,24 +1250,24 @@ async function load() {
     });
     avatarCancel.addEventListener('click', () => (avatarPanel.hidden = true));
     const chatCommands = new Map();
-    chatCommands.set('search', (args) => exports.client.messaging.send('search', { query: args }));
-    chatCommands.set('youtube', (args) => exports.client.messaging.send('youtube', { videoId: args }));
-    chatCommands.set('skip', (args) => {
-        if (currentVideoMessage)
-            exports.client.messaging.send('skip', { password: args, videoId: currentVideoMessage.videoId });
+    chatCommands.set('search', (query) => exports.client.messaging.send('search', { query }));
+    chatCommands.set('youtube', (videoId) => exports.client.messaging.send('youtube', { videoId }));
+    chatCommands.set('skip', (password) => {
+        if (currentPlayMessage)
+            exports.client.messaging.send('skip', { password, source: currentPlayMessage.item.media.source });
     });
     chatCommands.set('password', (args) => (exports.client.joinPassword = args));
-    chatCommands.set('users', (args) => listUsers());
-    chatCommands.set('help', (args) => listHelp());
+    chatCommands.set('users', () => listUsers());
+    chatCommands.set('help', () => listHelp());
     chatCommands.set('result', playFromSearchResult);
-    chatCommands.set('lucky', (args) => exports.client.messaging.send('search', { query: args, lucky: true }));
-    chatCommands.set('reboot', (args) => exports.client.messaging.send('reboot', { master_key: args }));
-    chatCommands.set('avatar', (args) => {
-        if (args.trim().length === 0) {
+    chatCommands.set('lucky', (query) => exports.client.messaging.send('search', { query, lucky: true }));
+    chatCommands.set('reboot', (password) => exports.client.messaging.send('reboot', { password }));
+    chatCommands.set('avatar', (data) => {
+        if (data.trim().length === 0) {
             openAvatarEditor();
         }
         else {
-            exports.client.messaging.send('avatar', { data: args });
+            exports.client.messaging.send('avatar', { data });
         }
     });
     chatCommands.set('avatar2', (args) => {
@@ -1270,6 +1283,7 @@ async function load() {
         chat.log(`{clr=#FF00FF}! notifications ${permission}`);
     });
     chatCommands.set('name', rename);
+    chatCommands.set('archive', (path) => exports.client.messaging.send('archive', { path }));
     function toggleEmote(emote) {
         const emotes = exports.client.localUser.emotes;
         if (emotes.includes(emote))
@@ -1377,13 +1391,14 @@ async function load() {
             lines.push(cut + time);
         }
         const remaining = Math.round(player.duration - player.time);
-        if (currentVideoMessage && remaining > 0)
-            line(currentVideoMessage.title, remaining);
+        if (currentPlayMessage && remaining > 0)
+            line(currentPlayMessage.item.media.details.title, remaining);
         let total = remaining;
         if (showQueue) {
-            queue.forEach((video, i) => {
-                line(video.title, video.duration);
-                total += video.duration;
+            console.log(queue);
+            queue.forEach((item) => {
+                line(item.media.details.title, item.media.details.duration / 1000);
+                total += item.media.details.duration / 1000;
             });
             line('*** END ***', total);
             lines[lines.length - 1] = '{clr=#FF00FF}' + lines[lines.length - 1];
@@ -1792,6 +1807,7 @@ exports.getPageHeight = getPageHeight;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const blitsy_1 = require("blitsy");
+exports.objEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 exports.randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 exports.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 exports.clamp = (min, max, value) => Math.max(min, Math.min(max, value));
@@ -1802,7 +1818,7 @@ function fakedownToTag(text, fd, tag) {
 exports.fakedownToTag = fakedownToTag;
 const pad2 = (part) => (part.toString().length >= 2 ? part.toString() : '0' + part.toString());
 function secondsToTime(seconds) {
-    const s = seconds % 60;
+    const s = Math.floor(seconds % 60);
     const m = Math.floor(seconds / 60) % 60;
     const h = Math.floor(seconds / 3600);
     return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
